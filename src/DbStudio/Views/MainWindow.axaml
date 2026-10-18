@@ -1,0 +1,104 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:m="using:DbStudio.Models" xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+ x:Class="DbStudio.Views.MainWindow" Title="DbStudio — 数据库工作台" Icon="/Assets/logo.ico" Width="1360" Height="860" MinWidth="1040" MinHeight="680" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+ <Window.Styles>
+  <Style Selector="Border.compactBar Button">
+   <Setter Property="FontSize" Value="12"/>
+   <Setter Property="Padding" Value="8,3"/>
+   <Setter Property="MinHeight" Value="26"/>
+   <Setter Property="MinWidth" Value="0"/>
+  </Style>
+ </Window.Styles>
+ <Grid RowDefinitions="Auto,Auto,*,Auto">
+  <Border Grid.Row="0" Classes="compactBar" BorderBrush="#25815C" BorderThickness="0,3,0,0" Padding="12,4">
+   <Grid ColumnDefinitions="Auto,*,Auto">
+    <StackPanel Orientation="Horizontal" Spacing="7"><Image Source="/Assets/logo.png" Width="26" Height="26" Stretch="Uniform" VerticalAlignment="Center"/><TextBlock Text="DbStudio" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center"/><TextBlock Text="数据库工作台" FontSize="12" Opacity="0.5" Margin="8,0" VerticalAlignment="Center"/></StackPanel>
+    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"><Button Content="查询历史" Click="ShowHistory"/><Button Content="SQL 模板" Click="ShowTemplates"/><Button Content="打开脚本" Click="OpenScript"/><Button Content="保存脚本" Click="SaveScript"/><Button Content="设置" Click="ShowSettings"/><Button Content="切换主题" Click="ToggleTheme"/></StackPanel>
+   </Grid>
+  </Border>
+  <Border Grid.Row="1" Classes="compactBar" BorderBrush="#80808040" BorderThickness="0,1" Padding="8,4">
+   <WrapPanel>
+    <Button Classes="primary" Content="＋ 新建连接" Click="NewConnection"/>
+    <Button Content="编辑连接" Click="EditConnection"/><Button x:Name="OpenConnectionButton" Content="打开连接" Click="ConnectDatabase"/><Button x:Name="CloseConnectionButton" Content="关闭连接" Click="DisconnectDatabase"/><Button Content="复制" Click="CopyConnection"/><Button Content="删除" Click="DeleteConnection"/>
+    <Button Content="新建数据库" Click="CreateDatabase"/><Button Content="新建表" Click="CreateTable"/>
+    <Button Content="分组" Click="ManageGroups"/><Button Content="配置备份" Click="WorkspaceBackup"/>
+    <Separator Width="8"/>
+    <Button Content="＋ 查询" Click="NewQuery"/><Button Content="▶ 执行" Classes="primary" Click="RunSql"/><Button Content="■ 终止" Click="StopSql"/>
+    <Button Content="格式化" Click="FormatSql"/><Button Content="执行计划" Click="ExplainSql"/><Button Content="导出结果" Click="ExportResult"/><Button Content="图表" Click="OpenChart"/><Button Content="数据库工具" Click="OpenDatabaseTools"/>
+   </WrapPanel>
+  </Border>
+  <Grid Grid.Row="2" ColumnDefinitions="260,5,*" x:Name="WorkspaceGrid">
+   <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="12,14,8,10">
+    <Grid ColumnDefinitions="*,Auto"><TextBlock Text="连接与数据库" FontWeight="SemiBold" VerticalAlignment="Center"/><Button Grid.Column="1" Content="刷新" Click="RefreshTree" Padding="7,4"/></Grid>
+    <TextBox Grid.Row="1" x:Name="ObjectFilter" Watermark="搜索连接 / 已加载对象…" Margin="0,12,0,10" TextChanged="FilterObjects"/>
+    <TreeView Grid.Row="2" x:Name="ObjectTree" ItemsSource="{Binding Nodes}" DoubleTapped="OpenNode" DragDrop.AllowDrop="True" PointerPressed="TreePointerPressed" PointerMoved="TreePointerMoved">
+     <TreeView.Styles><Style Selector="TreeViewItem"><Setter Property="IsVisible" Value="{Binding Visible}"/></Style></TreeView.Styles>
+     <TreeView.ItemTemplate><TreeDataTemplate DataType="m:ObjectNode" ItemsSource="{Binding Children}"><TextBlock Text="{Binding Label}" Margin="2,5"/></TreeDataTemplate></TreeView.ItemTemplate>
+     <TreeView.ContextMenu><ContextMenu>
+      <MenuItem Header="打开 / 加载" Click="OpenNodeMenu"/>
+      <MenuItem Header="打开连接" Click="ConnectDatabase"/><MenuItem Header="关闭连接" Click="DisconnectDatabase"/>
+      <Separator/>
+      <MenuItem Header="新建数据库" Click="CreateDatabase"/><MenuItem Header="新建表" Click="CreateTable"/>
+      <MenuItem Header="重命名表" Click="RenameTable"/><MenuItem Header="删除表" Click="DropTable"/>
+      <MenuItem Header="查看表结构与索引" Click="ViewStructure"/>
+      <MenuItem Header="生成 SELECT" Click="GenerateSelect"/>
+      <MenuItem Header="生成 INSERT 模板" Click="GenerateInsert"/>
+      <MenuItem Header="生成 CREATE TABLE 模板" Click="GenerateCreate"/>
+      <MenuItem Header="生成 CREATE INDEX 模板" Click="GenerateIndex"/>
+      <MenuItem Header="复制对象名称" Click="CopyObjectName"/>
+     </ContextMenu></TreeView.ContextMenu>
+    </TreeView>
+    <TextBlock Grid.Row="3" Text="双击连接加载数据库，双击表浏览数据" FontSize="11" Opacity="0.55" TextWrapping="Wrap" Margin="0,10,0,0"/>
+   </Grid>
+   <GridSplitter Grid.Column="1" Background="#80808025" ResizeDirection="Columns"/>
+   <Grid Grid.Column="2" RowDefinitions="Auto,Auto,2*,5,3*,Auto" Margin="12,12,14,10" x:Name="EditorWorkspaceGrid">
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,9">
+     <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="当前连接" VerticalAlignment="Center" Opacity="0.6"/><ComboBox x:Name="ConnectionPicker" Width="240" ItemsSource="{Binding Connections}" SelectedItem="{Binding Connection, Mode=TwoWay}" SelectionChanged="ChangeConnection"/><TextBlock Text="数据库" VerticalAlignment="Center" Opacity="0.6"/><ComboBox x:Name="DatabasePicker" Width="200" PlaceholderText="选择数据库" SelectionChanged="ChangeDatabase"/><Button Content="刷新库" Click="ReloadDatabases" Padding="7,3" MinHeight="26" FontSize="12"/></StackPanel>
+     <TextBlock Grid.Column="1" Text="{Binding ConnectionStatus}" VerticalAlignment="Center" Opacity="0.5" FontSize="12"/>
+    </Grid>
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+     <ListBox x:Name="QueryTabs" ItemsSource="{Binding Tabs}" SelectedItem="{Binding Tab, Mode=TwoWay}" SelectionChanged="ChangeTab" Height="28" MinHeight="0" Padding="0" FontSize="12" DragDrop.AllowDrop="True" PointerPressed="TabsPointerPressed" PointerMoved="TabsPointerMoved">
+      <ListBox.Styles>
+       <Style Selector="ListBoxItem">
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Padding" Value="8,3"/>
+        <Setter Property="Margin" Value="0"/>
+       </Style>
+      </ListBox.Styles>
+      <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+      <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Title}" VerticalAlignment="Center"/></DataTemplate></ListBox.ItemTemplate>
+     </ListBox>
+     <Button Grid.Column="1" Content="关闭查询" Click="CloseTab" FontSize="12" Padding="8,3" MinHeight="0" Height="28"/>
+    </Grid>
+    <Border Grid.Row="2" BorderBrush="#80808040" BorderThickness="1" Padding="4" Margin="0,6,0,0">
+     <edit:TextEditor x:Name="SqlEditor" ShowLineNumbers="True" FontFamily="Cascadia Code,Consolas,monospace" FontSize="14" Background="Transparent" KeyDown="EditorKeyDown"/>
+    </Border>
+    <GridSplitter Grid.Row="3" ResizeDirection="Rows" HorizontalAlignment="Stretch" Background="#80808025"/>
+    <Grid Grid.Row="4" RowDefinitions="Auto,Auto,*,Auto">
+     <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,8">
+      <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="查询结果" FontWeight="SemiBold" VerticalAlignment="Center"/><ComboBox x:Name="ResultPicker" MinWidth="170" SelectionChanged="ChangeResult"/></StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5"><Button Content="字段详情" Click="ViewCell" Padding="7,4"/><Button Content="复制单元格" Click="CopyCell" Padding="7,4"/><Button Content="复制行" Click="CopyRow" Padding="7,4"/><TextBlock x:Name="RowCount" Text="0 行" VerticalAlignment="Center" Margin="8,0" Opacity="0.6"/></StackPanel>
+     </Grid>
+     <WrapPanel Grid.Row="1" Margin="0,0,0,7">
+      <Button x:Name="AddRowButton" Content="＋ 新增行" Click="AddDataRow" Margin="0,0,5,0" Padding="8,4"/>
+      <Button x:Name="DeleteRowButton" Content="删除选中行" Click="DeleteDataRow" Margin="0,0,5,0" Padding="8,4"/>
+      <Button x:Name="NullCellButton" Content="设为 NULL" Click="SetCellNull" Margin="0,0,5,0" Padding="8,4"/>
+      <Button x:Name="CommitEditsButton" Classes="primary" Content="提交变更" Click="CommitDataEdits" Margin="0,0,5,0" Padding="8,4"/>
+      <Button x:Name="RevertEditsButton" Content="撤销变更" Click="RevertDataEdits" Margin="0,0,8,0" Padding="8,4"/>
+      <TextBlock x:Name="EditStatus" Text="只读结果" VerticalAlignment="Center" Opacity="0.65" FontSize="12"/>
+     </WrapPanel>
+     <DataGrid Grid.Row="2" x:Name="Results" IsReadOnly="True" AutoGenerateColumns="False" CanUserResizeColumns="True" CanUserSortColumns="True" GridLinesVisibility="All" SelectionMode="Single" BorderThickness="1" BorderBrush="#80808030"/>
+     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="7" Margin="0,9,0,5">
+      <TextBox x:Name="WhereFilter" Width="300" Watermark="WHERE 条件，例如 id &gt; 100"/>
+      <Button Content="筛选" Click="ApplyFilter"/><Button Content="上一页" Click="PreviousPage"/><TextBlock x:Name="PageLabel" Text="第 1 页" VerticalAlignment="Center"/><Button Content="下一页" Click="NextPage"/>
+      <ComboBox x:Name="PageSize" SelectedIndex="2" Width="85"><ComboBoxItem Content="20"/><ComboBoxItem Content="50"/><ComboBoxItem Content="100"/><ComboBoxItem Content="500"/></ComboBox>
+     </StackPanel>
+    </Grid>
+    <Expander Grid.Row="5" Header="消息与任务日志" IsExpanded="True" MaxHeight="150" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+     <Grid ColumnDefinitions="*,Auto"><ListBox ItemsSource="{Binding Logs}" FontFamily="Consolas,monospace" FontSize="12" MaxHeight="105"/><Button Grid.Column="1" Content="清空" Click="ClearLogs" VerticalAlignment="Top"/></Grid>
+    </Expander>
+   </Grid>
+  </Grid>
+  <Border Grid.Row="3" Background="#217B58" Padding="14,6"><Grid ColumnDefinitions="*,Auto"><TextBlock Foreground="White" Text="{Binding Status}" FontSize="12" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Foreground="White" Opacity="0.8" Text="DbStudio 0.3 · 数据库工具" FontSize="12"/></Grid></Border>
+ </Grid>
+</Window>

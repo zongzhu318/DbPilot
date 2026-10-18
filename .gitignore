@@ -1,0 +1,54 @@
+# Local SDK, NuGet cache, and generated release/test artifacts
+/.tools/
+/artifacts/
+
+# .NET / Avalonia build output (all projects)
+**/[Bb]in/
+**/[Oo]bj/
+**/.avalonia-build-tasks/
+
+# IDE user settings; keep shared .vscode settings and workflows trackable
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.sln.iml
+
+# Test results and coverage reports
+**/TestResults/
+**/coverage/
+*.trx
+*.coverage
+*.coveragexml
+coverage.cobertura.xml
+coverage.opencover.xml
+
+# Local environment and credentials (example files may be committed)
+.env
+.env.*
+!.env.example
+!.env.*.example
+secret.key
+*.pfx
+*.p12
+*.ppk
+id_rsa
+id_ed25519
+# Use these directories for repository-local DBSTUDIO_DATA_DIR or secrets
+/.local/
+/secrets/
+
+# Temporary files, logs, and OS metadata
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini

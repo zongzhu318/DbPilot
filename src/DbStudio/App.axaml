@@ -1,0 +1,10 @@
+<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="DbStudio.App" RequestedThemeVariant="Light">
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+    <Style Selector="Button"><Setter Property="CornerRadius" Value="5"/><Setter Property="Padding" Value="12,7"/></Style>
+    <Style Selector="TextBox"><Setter Property="CornerRadius" Value="4"/></Style>
+    <Style Selector="Button.primary"><Setter Property="Background" Value="#217B58"/><Setter Property="Foreground" Value="White"/></Style>
+  </Application.Styles>
+</Application>

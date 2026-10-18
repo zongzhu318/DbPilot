@@ -1,0 +1,35 @@
+name: Build desktop packages
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-22.04
+            rid: linux-x64
+          - os: macos-14
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install Linux rendering dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1 libfreetype6
+      - name: Offline protocol and headless UI checks
+        run: dotnet run --project tests/DbStudio.Checks/DbStudio.Checks.csproj -c Release
+      - name: Publish self-contained app
+        shell: pwsh
+        run: ./publish.ps1 -Runtime '${{ matrix.rid }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DbStudio-${{ matrix.rid }}
+          path: artifacts/${{ matrix.rid }}/
