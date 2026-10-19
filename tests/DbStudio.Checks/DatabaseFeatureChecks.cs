@@ -34,6 +34,54 @@ internal static class DatabaseFeatureChecks
         var vm=(MainViewModel)window.DataContext!;var originalConnection=vm.Connection;var originalTab=vm.Tab;var profile=new ConnectionProfile{Name="选择数据库测试",Kind=DatabaseKind.PostgreSQL,Database="sales"};
         var cached=(Dictionary<Guid,IReadOnlyList<string>>)typeof(MainWindow).GetField("_databaseLists",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!.GetValue(window)!;
         cached[profile.Id]=["sales","warehouse"];vm.Connections.Add(profile);vm.Connection=profile;vm.NewQuery(profile:profile);Dispatcher.UIThread.RunJobs();
+        var factoryField=typeof(MainViewModel).GetField("_createProvider",flags)!;
+        var originalFactory=factoryField.GetValue(vm);
+        var capturedSql=new List<string>();
+        factoryField.SetValue(vm,new Func<ConnectionProfile,IDbProvider>(p=>new Probe(p,capturedSql)));
+        var sqlEditor=window.FindControl<AvaloniaEdit.TextEditor>("SqlEditor")!;
+        var oldSql=sqlEditor.Text;
+        var oldBrowse=new QueryResult(["old_row","nullable_text"],[new object?[]{1,null}],0,false,[typeof(int),typeof(string)]);
+        vm.Tab!.Table=new DbObject("sales","public","items","表");
+        vm.Tab.BrowseSql="SELECT * FROM items";vm.Tab.Result=oldBrowse;vm.Tab.ResultSets=[oldBrowse];
+        vm.Tab.Edits=new TableEditSession(oldBrowse,[new("old_row","int",false,true,"",""),new("nullable_text","text",true,false,"","")]);
+        vm.SelectTab(vm.Tab);Dispatcher.UIThread.RunJobs();
+        check(vm.Tab.Edits.PendingCount==0&&vm.Tab.Edits.Data.Rows[0].IsNull(1),"displaying a nullable table does not create pending edits");
+        check(window.FindControl<DataGrid>("Results")!.GetVisualDescendants().OfType<TextBlock>().Any(t=>t.Text=="NULL"),"database NULL retains its display label without writing back");
+        var nullableGrid=window.FindControl<DataGrid>("Results")!;
+        nullableGrid.SelectedItem=((ResultRows)nullableGrid.ItemsSource!)[0];nullableGrid.CurrentColumn=nullableGrid.Columns[1];nullableGrid.Focus();
+        check(nullableGrid.BeginEdit(),"NULL cell can enter editing without creating a display-string change");Dispatcher.UIThread.RunJobs();
+        check(nullableGrid.CommitEdit(DataGridEditingUnit.Cell,true)&&nullableGrid.CommitEdit(DataGridEditingUnit.Row,true)&&vm.Tab.Edits.PendingCount==0&&vm.Tab.Edits.Data.Rows[0].IsNull(1),"leaving an untouched NULL cell preserves NULL and does not block SQL execution");
+        sqlEditor.Text="SELECT 17;";
+        var execution=(Task)typeof(MainWindow).GetMethod("Run",flags)!.Invoke(window,null)!;
+        var deadline=DateTime.UtcNow.AddSeconds(5);
+        while(!execution.IsCompleted&&DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
+        check(execution.IsCompleted&&capturedSql.Any(sql=>sql.Contains("SELECT 17")),"execute button path sends editor SQL to the provider: "+vm.Status);
+        check(vm.Tab!.Result?.Columns.SequenceEqual(new[]{"database"})==true&&vm.Tab.Edits is null&&vm.Tab.Table is null,
+            "edited table-browse SQL replaces old rows and exits table editing mode");
+        sqlEditor.Text="select 21;\nselect 22;";sqlEditor.Select(0,"select 21;".Length);
+        sqlEditor.RaiseEvent(new ContextRequestedEventArgs{RoutedEvent=Control.ContextRequestedEvent});Dispatcher.UIThread.RunJobs();
+        var executeMenu=window.FindControl<MenuItem>("ExecuteEditorSqlMenu")!;
+        var formatMenu=window.FindControl<MenuItem>("FormatEditorSqlMenu")!;
+        check(executeMenu.Header?.ToString()=="执行选中 SQL"&&executeMenu.IsEnabled,"SQL context menu offers execution for selected text: "+executeMenu.Header+" / "+executeMenu.IsEnabled+" / "+sqlEditor.SelectedText+" / "+vm.Status);
+        formatMenu.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        check(sqlEditor.Text=="SELECT 21;\nselect 22;"&&sqlEditor.SelectedText=="SELECT 21;","context formatting changes only selected SQL and retains selection");
+        sqlEditor.Document.UndoStack.Undo();
+        check(sqlEditor.Text=="select 21;\nselect 22;","selected SQL formatting can be undone");
+        sqlEditor.Select(0,"select 21;".Length);sqlEditor.ContextMenu.Close();
+        capturedSql.Clear();executeMenu.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        deadline=DateTime.UtcNow.AddSeconds(5);
+        while(vm.Busy&&DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
+        check(capturedSql.Count==1&&capturedSql[0].Contains("select 21")&&!capturedSql[0].Contains("22"),"context execute sends selected SQL only");
+        sqlEditor.Select(0,0);capturedSql.Clear();
+        window.FindControl<Button>("ExecuteSqlButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        deadline=DateTime.UtcNow.AddSeconds(5);
+        while(vm.Busy&&DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
+        check(capturedSql.Count==2&&capturedSql.Any(sql=>sql.Contains("22")),"execute button runs whole script when nothing is selected");
+        sqlEditor.Text=" ";capturedSql.Clear();
+        execution=(Task)typeof(MainWindow).GetMethod("Run",flags)!.Invoke(window,null)!;
+        check(execution.IsCompleted&&capturedSql.Count==0&&vm.Status.Contains("请输入")&&logs.IsExpanded,"empty SQL gives visible feedback instead of silently returning");
+        logs.IsExpanded=false;
+        factoryField.SetValue(vm,originalFactory);sqlEditor.Text=oldSql;
         var picker=window.FindControl<ComboBox>("DatabasePicker")!;
         check(picker.SelectedItem?.ToString()=="sales"&&picker.Items.Count==2,"main database selector displays selected connection databases");picker.SelectedItem="warehouse";Dispatcher.UIThread.RunJobs();
         check(vm.Tab?.Connection?.Database=="warehouse"&&profile.Database=="sales","actual database picker changes only active query context");
@@ -121,14 +169,14 @@ internal static class DatabaseFeatureChecks
         foreach(var sql in tableSql)check(SqlCompletionContext.Read(sql,sql.Length) is {TablePosition:true},"table suggestions after "+sql);
         foreach(var sql in new[]{"SELECT ","SELECT * FROM users WHERE ","UPDATE users SET ","SELECT * FROM users ORDER BY "})check(SqlCompletionContext.Read(sql,sql.Length) is {ColumnPosition:true},"column suggestions after "+sql);
     }
-    private sealed class Probe(ConnectionProfile profile):IDbProvider
+    private sealed class Probe(ConnectionProfile profile,List<string>? queries=null):IDbProvider
     {
         public Task TestAsync(CancellationToken ct)=>Task.CompletedTask;
         public Task<IReadOnlyList<string>> DatabasesAsync(CancellationToken ct)=>Task.FromResult<IReadOnlyList<string>>(["sales","warehouse"]);
         public Task<IReadOnlyList<DbObject>> ObjectsAsync(string db,CancellationToken ct)=>Task.FromResult<IReadOnlyList<DbObject>>([]);
         public Task<IReadOnlyList<ColumnInfo>> ColumnsAsync(DbObject table,CancellationToken ct)=>Task.FromResult<IReadOnlyList<ColumnInfo>>([]);
         public Task<IReadOnlyList<IndexInfo>> IndexesAsync(DbObject table,CancellationToken ct)=>Task.FromResult<IReadOnlyList<IndexInfo>>([]);
-        public Task<QueryResult> QueryAsync(string sql,int limit,CancellationToken ct)=>Task.FromResult(new QueryResult(["database"],[new object?[]{profile.Database}],0,false));
+        public Task<QueryResult> QueryAsync(string sql,int limit,CancellationToken ct){queries?.Add(sql);return Task.FromResult(new QueryResult(["database"],[new object?[]{profile.Database}],0,false));}
         public string Quote(string name)=>"\""+name.Replace("\"","\"\"")+"\"";
         public string Qualified(DbObject table)=>Quote(table.Schema)+"."+Quote(table.Name);
         public string PageSql(DbObject table,string filter,int page,int size)=>"SELECT * FROM "+Qualified(table);

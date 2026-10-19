@@ -35,7 +35,7 @@ public sealed partial class MainWindow : Window
     private CompletionWindow? _completion;
     public MainWindow()
     {
-        InitializeComponent();DataContext=_vm;InitializeCompletion();
+        InitializeComponent();DataContext=_vm;InitializeCompletion();InitializeSqlContextMenu();
         AddHandler(KeyDownEvent,WorkspaceKeyDown,Avalonia.Interactivity.RoutingStrategies.Tunnel);
         TableCatalogGrid.AddHandler(PointerPressedEvent,CatalogPointerPressed,RoutingStrategies.Tunnel,handledEventsToo:true);
         TableCatalogGrid.AddHandler(ContextRequestedEvent,CatalogContextRequested,RoutingStrategies.Tunnel,handledEventsToo:true);
@@ -154,11 +154,20 @@ public sealed partial class MainWindow : Window
         CloseCatalog();
         if(!EditorPane.IsVisible)SetEditorVisible(true);
         var sql=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?SqlEditor.Text:SqlEditor.SelectedText;
-        if(string.IsNullOrWhiteSpace(sql))return;
-        if(!FlushGridEdits())return;
+        if(_vm.Busy){ReportSqlProblem("已有任务运行，请等待或终止当前任务。");return;}
+        if(string.IsNullOrWhiteSpace(sql)){ReportSqlProblem("请输入或选中要执行的 SQL。");return;}
+        var profile=_vm.CurrentProfile;
+        if(profile is null){ReportSqlProblem("请先在上方选择连接，再执行 SQL。");return;}
+        if(_vm.IsClosed(profile)){ReportSqlProblem("该连接已关闭，请先打开连接再执行 SQL。");return;}
+        if(!FlushGridEdits()){TaskLogPanel.IsVisible=true;TaskLogPanel.IsExpanded=true;return;}
+        if(_vm.Tab?.Edits is {} edits&&(edits.PendingCount>0||edits.CommitUncertain)){
+            ReportSqlProblem("请先提交或撤销数据改动；提交结果未知时，请先核对数据库并重新加载。");return;
+        }
+        if(_vm.Tab is null)_vm.NewQuery(SqlEditor.Text,profile);
         if(SqlTools.RequiresConfirmation(sql)&&!await Confirm("SQL 包含删除对象或结构的操作，可能永久删除数据。确定执行？","执行删除"))return;
         int baseLine=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?0:SqlEditor.Document.GetLineByOffset(SqlEditor.SelectionStart).LineNumber-1;
         await _vm.ExecuteAsync(sql);
+        if(_vm.LastScriptErrorLine is not null||_vm.Status.StartsWith("操作失败：")){TaskLogPanel.IsVisible=true;TaskLogPanel.IsExpanded=true;}
         if(_vm.LastScriptErrorLine is {} line){line=Math.Clamp(line+baseLine,1,SqlEditor.Document.LineCount);SqlEditor.CaretOffset=SqlEditor.Document.GetLineByNumber(line).Offset;SqlEditor.ScrollToLine(line);}
     }
     private void WorkspaceKeyDown(object? sender,KeyEventArgs e)
@@ -175,7 +184,6 @@ public sealed partial class MainWindow : Window
         if(KeyGesture.Parse(_vm.Settings.CompletionGesture).Matches(e)){e.Handled=true;await ShowCompletion();}
     }
     private void StopSql(object? sender,RoutedEventArgs e)=>_vm.Cancel();
-    private void FormatSql(object? sender,RoutedEventArgs e)=>SqlEditor.Text=SqlTools.Format(SqlEditor.Text);
     private void ToggleTheme(object? sender,RoutedEventArgs e){_vm.Settings.Dark=!_vm.Settings.Dark;ApplySettings();}
     private async void ClearLogs(object? sender,RoutedEventArgs e)
     {
@@ -232,7 +240,7 @@ public sealed partial class MainWindow : Window
         if(result is null){Results.ItemsSource=null;RowCount.Text="0 行";UpdateEditControls();return;}
         _resultData=_vm.Tab?.Edits?.Data??ResultTable.Create(result);
         for(int i=0;i<result.Columns.Count;i++){
-            Results.Columns.Add(new DataGridTextColumn{Header=result.Columns[i],Binding=new Binding("["+i+"]"){Mode=BindingMode.TwoWay,TargetNullValue="NULL"},IsReadOnly=_vm.Tab?.Edits is not {} edits || !edits.CanEditColumn(i),CanUserSort=true,SortMemberPath="c"+i,Width=new DataGridLength(150)});
+            Results.Columns.Add(new ResultTextColumn{ColumnIndex=i,Header=result.Columns[i],Binding=new Binding("["+i+"]"){Mode=BindingMode.TwoWay},IsReadOnly=_vm.Tab?.Edits is not {} edits || !edits.CanEditColumn(i),CanUserSort=true,SortMemberPath="c"+i,Width=new DataGridLength(150)});
         }
         _resultRows=new ResultRows(_resultData.DefaultView);Results.ItemsSource=_resultRows;RowCount.Text=$"{result.Rows.Count} 行"+(result.Truncated?"（已截断）":"");
         UpdateEditControls();

@@ -35,7 +35,7 @@ public sealed partial class MainWindow
         WhereFilter.IsEnabled=browse;ApplyFilterButton.IsEnabled=browse;
         PreviousPageButton.IsEnabled=browse&&_vm.Tab!.Page>0;
         NextPageButton.IsEnabled=browse&&(_vm.Tab!.Result?.Rows.Count??0)>=_vm.Tab.PageSize;
-        ExecuteSqlButton.IsEnabled=!_vm.Busy&&_vm.CurrentProfile is {} active&&!_vm.IsClosed(active);StopSqlButton.IsEnabled=_vm.Busy;
+        ExecuteSqlButton.IsEnabled=!_vm.Busy;StopSqlButton.IsEnabled=_vm.Busy;
         AddRowButton.IsEnabled=writable;DeleteRowButton.IsEnabled=writable;NullCellButton.IsEnabled=writable;
         CommitEditsButton.IsEnabled=writable;RevertEditsButton.IsEnabled=session is not null && !_vm.Busy;
         EditStatus.Text=_vm.Tab?.Connection is {} closed&&_vm.IsClosed(closed)?"连接已关闭 · 本地改动已保留，重新连接后可继续":session is null ? "只读 · 从对象树打开有主键的关系表可编辑" : session.CommitUncertain ? "提交结果未知 · 请核对数据库后重新加载" : $"待提交 {session.PendingCount} 行 · 双击单元格编辑";

@@ -77,7 +77,9 @@
      <Button Grid.Column="2" Content="关闭查询" ToolTip.Tip="关闭当前查询（⌘/Ctrl+W）" Click="CloseTab" FontSize="11" Padding="8,3" MinHeight="0" Height="28"/>
     </Grid>
     <Border x:Name="EditorPane" Background="{DynamicResource PanelBackground}" CornerRadius="5" Grid.Row="2" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" Padding="2" Margin="0,3,0,0">
-     <edit:TextEditor x:Name="SqlEditor" ShowLineNumbers="True" FontFamily="Cascadia Code,Consolas,monospace" FontSize="14" Background="Transparent" KeyDown="EditorKeyDown"/>
+     <edit:TextEditor x:Name="SqlEditor" ShowLineNumbers="True" FontFamily="Cascadia Code,Consolas,monospace" FontSize="14" Background="Transparent" KeyDown="EditorKeyDown">
+      <edit:TextEditor.ContextMenu><ContextMenu><MenuItem x:Name="ExecuteEditorSqlMenu" Header="执行 SQL" Click="RunSql"/><MenuItem x:Name="FormatEditorSqlMenu" Header="格式化 SQL" Click="FormatSql"/></ContextMenu></edit:TextEditor.ContextMenu>
+     </edit:TextEditor>
     </Border>
     <GridSplitter x:Name="EditorSplitter" Grid.Row="3" ResizeDirection="Rows" HorizontalAlignment="Stretch" Background="{DynamicResource WorkspaceBorder}"/>
     <Grid Grid.Row="4" RowDefinitions="Auto,Auto,*,Auto">
