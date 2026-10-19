@@ -10,7 +10,7 @@ internal static class TDengineLiveChecks
 {
     public static async Task<int> Run()
     {
-        var profile=new ConnectionProfile{Kind=DatabaseKind.TDengine,Host="127.0.0.1",Port=6041,Username=Environment.GetEnvironmentVariable("DBSTUDIO_TD_USER")??"taos",Password=Environment.GetEnvironmentVariable("DBSTUDIO_TD_PASSWORD")??throw new Exception("Set DBSTUDIO_TD_PASSWORD")};
+        var profile=new ConnectionProfile{Kind=DatabaseKind.TDengine,Host=Environment.GetEnvironmentVariable("DBSTUDIO_TD_HOST")??"127.0.0.1",Port=int.Parse(Environment.GetEnvironmentVariable("DBSTUDIO_TD_PORT")??"6041"),Username=Environment.GetEnvironmentVariable("DBSTUDIO_TD_USER")??"taos",Password=Environment.GetEnvironmentVariable("DBSTUDIO_TD_PASSWORD")??throw new Exception("Set DBSTUDIO_TD_PASSWORD")};
         string database="dbpilot_test_"+DateTime.UtcNow.ToString("yyyyMMddHHmmss")+"_"+Guid.NewGuid().ToString("N")[..8];bool owned=false;int passed=0,failures=0;string version="unknown";var results=new List<object>();var started=DateTimeOffset.UtcNow;
         using var deadline=new CancellationTokenSource(TimeSpan.FromMinutes(3));var ct=deadline.Token;
         void Check(bool value,string message){if(!value)throw new Exception(message);}

@@ -20,6 +20,9 @@ if(args.Contains("--sqlserver-live")){Environment.ExitCode=await SqlServerLiveCh
 
 var count=0;
 void Check(bool condition,string name){if(!condition)throw new Exception("FAILED: "+name);Console.WriteLine("PASS "+name);count++;}
+var dirtyTab=new QueryTab();dirtyTab.Sql="SELECT 42";
+Check(dirtyTab.DisplayTitle.EndsWith(" •"),"query tab marks unsaved SQL");
+dirtyTab.SavedSql=dirtyTab.Sql;Check(!dirtyTab.DisplayTitle.EndsWith(" •"),"saved query clears unsaved marker");
 foreach(var text in new[]{"SELECT 'unfinished","-- comment","/* nested /* block */ still open","SELECT $$unfinished","SELECT $body$abc","SELECT \"unfinished"})Check(SqlCompletionContext.Read(text,text.Length) is null,"completion suppresses lexical region: "+text);
 var completionContext=SqlCompletionContext.Read("SELECT u.na FROM public.users u",11)!;
 Check(SqlCompletionContext.Read("-- comment\nSELECT 1",10) is null,"completion stays suppressed immediately before comment newline");
@@ -54,6 +57,9 @@ foreach(var kind in Enum.GetValues<DatabaseKind>()){
     Check(provider.Quote("a`\" ]").Length>6,kind+" quotes identifiers");
 }
 var formatted=SqlTools.Format("select 'select from', \"from\", `select` from t -- select\nwhere x = 'it''s from';");
+var ddlFormatted=SqlTools.FormatDdl("CREATE TABLE t (id int, amount decimal(12,3), note varchar(80) DEFAULT 'a,b (value)');");
+Check(ddlFormatted.Contains("\n    id int,")&&ddlFormatted.Contains("decimal(12,3)")&&ddlFormatted.Contains("'a,b (value)'"),"DDL formatting separates columns and preserves nested types and literals");
+Check(SqlTools.FormatDdl("CREATE TABLE t (id int, -- keep comment\n name text);").Contains("-- keep comment\n"),"DDL formatting preserves line-comment boundaries");
 Check(formatted.Contains("SELECT 'select from', \"from\", `select` FROM t -- select"),"formatter preserves literals, identifiers and comments");
 Check(SqlTools.CsvCell("a,\"b\"\nc")=="\"a,\"\"b\"\"\nc\"","CSV handles quotes, commas and newlines");
 Check(SqlTools.Display(null)=="NULL","NULL rendering");
@@ -106,6 +112,14 @@ Check(window.FindControl<DataGrid>("Results") is not null,"main window creates r
 Check(window.FindControl<TreeView>("ObjectTree") is not null,"main window creates object tree");
 Check(!window.FindControl<Button>("CommitEditsButton")!.IsEnabled,"arbitrary SQL result has no enabled commit action");
 var mainVm=(DbStudio.ViewModels.MainViewModel)window.DataContext!;
+var buildMenu=typeof(MainWindow).GetMethod("BuildTreeContextMenu",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
+string[] MenuFor(ObjectNode node){buildMenu.Invoke(window,[node]);return window.FindControl<TreeView>("ObjectTree")!.ContextMenu!.ItemsSource!.OfType<MenuItem>().Select(m=>m.Header?.ToString()??"").ToArray();}
+var connectionMenu=MenuFor(new(){Profile=profile,IsConnection=true});
+Check(connectionMenu.Contains("打开连接")&&connectionMenu.Contains("编辑连接")&&!connectionMenu.Contains("删除表"),"connection context menu contains only connection actions");
+var databaseMenu=MenuFor(new(){Profile=profile,Database="sandbox"});
+Check(databaseMenu.Contains("查看表列表")&&databaseMenu.Contains("新建表")&&!databaseMenu.Contains("编辑连接"),"database context menu contains database actions");
+var tableMenu=MenuFor(new(){Profile=profile,Database="sandbox",Object=new("sandbox","public","items","表")});
+Check(tableMenu.Contains("查看表结构与建表语句")&&tableMenu.Contains("删除表")&&!tableMenu.Contains("关闭连接"),"table context menu contains table actions");
 CompletionChecks.Run(window,mainVm,Check);
 DatabaseFeatureChecks.RunUi(window,Check);
 var uiResult=new QueryResult(["id","description","quantity"],[new object?[]{1,"Editable row",10},new object?[]{2,"Zebra row",20}],0,false,[typeof(int),typeof(string),typeof(int)]);
@@ -140,6 +154,13 @@ var previewPath=Environment.GetEnvironmentVariable("DBSTUDIO_PREVIEW");
 if(!string.IsNullOrEmpty(previewPath)) {
     using var frame=window.CaptureRenderedFrame();
     Check(frame is not null,"Skia renders main window");frame!.Save(previewPath);
+}
+var darkPreview=Environment.GetEnvironmentVariable("DBSTUDIO_DARK_PREVIEW");
+if(!string.IsNullOrEmpty(darkPreview)){
+    var toggle=typeof(MainWindow).GetMethod("ToggleTheme",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
+    toggle.Invoke(window,[null,new Avalonia.Interactivity.RoutedEventArgs()]);Dispatcher.UIThread.RunJobs();
+    using(var frame=window.CaptureRenderedFrame()){frame!.Save(darkPreview);}
+    toggle.Invoke(window,[null,new Avalonia.Interactivity.RoutedEventArgs()]);Dispatcher.UIThread.RunJobs();
 }
 var dialog=new ConnectionDialog();dialog.Show(window);Dispatcher.UIThread.RunJobs();
 Check(dialog.IsVisible,"connection dialog opens without XAML or binding exceptions");

@@ -25,6 +25,30 @@ public static partial class SqlTools
         }
         return result.ToString();
     }
+    public static string FormatDdl(string sql)
+    {
+        var result=new StringBuilder();int depth=0;bool space=false;
+        void NewLine(int indent){while(result.Length>0&&char.IsWhiteSpace(result[^1]))result.Length--;result.AppendLine();result.Append(' ',indent);space=false;}
+        foreach(Match match in TokenRegex().Matches(Format(sql))){
+            var token=match.Value;
+            if(string.IsNullOrWhiteSpace(token)){space=true;continue;}
+            if(token=="("){
+                if(space&&result.Length>0)result.Append(' ');
+                result.Append(token);depth++;space=false;
+                if(depth==1)NewLine(4);
+            }else if(token==")"){
+                if(depth==1)NewLine(0);
+                result.Append(token);depth=Math.Max(0,depth-1);space=false;
+            }else if(token==","&&depth==1){result.Append(',');NewLine(4);}
+            else if(token==";"&&depth==0){result.Append(';');NewLine(0);}
+            else{
+                if(space&&result.Length>0&&!char.IsWhiteSpace(result[^1]))result.Append(' ');
+                result.Append(token);space=false;
+                if(token.StartsWith("--"))NewLine(depth>0?4:0);
+            }
+        }
+        return result.ToString().Trim();
+    }
     [GeneratedRegex(@"'(?:''|[^'])*'|""(?:""""|[^""])*""|`(?:``|[^`])*`|\[(?:\]\]|[^\]])*\]|--[^\r\n]*|/\*[\s\S]*?\*/|[A-Za-z_][A-Za-z_0-9]*|[\s\S]")]
     private static partial Regex TokenRegex();
     [GeneratedRegex(@"^(select|from|where|order|by|group|having|join|left|right|inner|outer|on|as|and|or|not|null|is|insert|into|values|update|set|delete|create|table|index|limit|offset|fetch|next|rows|only|distinct|union|all|desc|asc|case|when|then|else|end)$",RegexOptions.IgnoreCase)]

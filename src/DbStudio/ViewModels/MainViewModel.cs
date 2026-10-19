@@ -29,7 +29,7 @@ public sealed partial class MainViewModel : Observable
     public async Task HeartbeatAsync()
     {
         if(Busy||Connection is not {} profile||!_connected.Contains(profile.Id))return;
-        await Guard(async ct=>{try{using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(TimeSpan.FromSeconds(Math.Min(15,profile.Timeout)));await using var provider=_createProvider(profile);await provider.TestAsync(timeout.Token);}catch{_connected.Remove(profile.Id);_disconnected.Add(profile.Id);Changed(nameof(ConnectionStatus));throw;}});
+        await Guard(async ct=>{try{using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(TimeSpan.FromSeconds(Math.Min(15,profile.Timeout)));await using var provider=_createProvider(profile);await provider.TestAsync(timeout.Token);}catch{_connected.Remove(profile.Id);_disconnected.Add(profile.Id);Changed(nameof(ConnectionStatus));UpdateConnectionNodes(profile,true);throw;}});
     }
     private QueryTab? _tab;
     public QueryTab? Tab { get => _tab; set => Set(ref _tab,value); }
@@ -70,7 +70,7 @@ public sealed partial class MainViewModel : Observable
             var members=Connections.Where(p=>p.Group==group).ToArray();
             var root = new ObjectNode { Label = group, Profile = members.FirstOrDefault() ?? new(), Loaded = true, IsGroup=true };
             foreach(var p in members.Where(p=>string.IsNullOrWhiteSpace(filter) || p.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))) {
-                var node = new ObjectNode { Label = ConnectionNodeLabel(p), Profile = p };
+                var node = new ObjectNode { Label = ConnectionNodeLabel(p), Profile = p, IsConnection=true, IconColor=ConnectionIconColor(p) };
                 node.Children.Add(new ObjectNode { Label="双击加载数据库",Profile=p,Loaded=true }); root.Children.Add(node);
             }
             Nodes.Add(root);
@@ -139,7 +139,7 @@ public sealed partial class MainViewModel : Observable
             result=tab.ResultSets.LastOrDefault()??new QueryResult([],[],0,false);
         }
         tab.ResultIndex=Math.Max(0,tab.ResultSets.Count-1);tab.Result=result;tab.Edits=null;
-        if(tableBrowse){tab.BrowseSql=sql;tab.PageSize=limit;await PrepareEditsAsync(provider,tab,result,ct);}
+        if(tableBrowse){tab.SavedSql=sql;tab.BrowseSql=sql;tab.PageSize=limit;await PrepareEditsAsync(provider,tab,result,ct);}
         else{tab.Table=null;tab.BrowseSql="";}
         if (ReferenceEquals(Tab,tab)) ResultChanged?.Invoke(result);
         Log($"{(scriptFailed?"执行结束（存在失败批次）":"执行完成")} · {watch.ElapsedMilliseconds} ms · {tab.ResultSets.Count} 个结果 · {result.Rows.Count} 行 · 受影响 {Math.Max(0,result.Affected)} 行" + (result.Truncated ? $" · 显示上限 {limit} 行，请添加分页条件" : ""));
@@ -167,7 +167,10 @@ public sealed partial class MainViewModel : Observable
         if(Busy){Log("请等待或终止当前任务后再打开表。");return;}
         if(node.Object is null) return;
         if(node.Object.Kind is not ("表" or "视图" or "超级表" or "普通表" or "子表")) { Log("该对象不可直接浏览，请在 SQL 编辑器中调用或查看定义。"); return; }
+        if(IsClosed(node.Profile)){Log("请先打开连接再浏览数据。");return;}
         var profile=CloneForDatabase(node.Profile,node.Database);
+        var existing=Tabs.FirstOrDefault(t=>t.Connection?.Id==profile.Id&&t.Connection.Database==profile.Database&&t.Table==node.Object);
+        if(existing is not null){SelectTab(existing);Log("已切换到表浏览页 · "+node.Object);return;}
         await using var provider=_createProvider(profile);
         var sql=provider.PageSql(node.Object,"",0,size); NewQuery(sql,profile,node.Object); await ExecuteAsync(sql,size,true);
     }

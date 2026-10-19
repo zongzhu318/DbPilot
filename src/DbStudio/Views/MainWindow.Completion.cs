@@ -86,7 +86,7 @@ public sealed partial class MainWindow
             var window=new CompletionWindow(SqlEditor.TextArea){StartOffset=context.Start};_completion=window;
             // Bind directly to the completion item: the bundled theme's nested Content binding renders blank rows.
             window.CompletionList.ListBox.ItemTemplate=new FuncDataTemplate<ICompletionData>((item,_)=>new TextBlock{
-                Text=item?.Text,FontSize=13,Margin=new Thickness(8,3),VerticalAlignment=Avalonia.Layout.VerticalAlignment.Center
+                Text=item?.Text,FontSize=12,Margin=new Thickness(8,3),VerticalAlignment=Avalonia.Layout.VerticalAlignment.Center
             });
             foreach(var entry in entries)window.CompletionList.CompletionData.Add(new SqlCompletionData(entry.Key,entry.Value.Description,entry.Value.Insert));
             window.Closed+=(_,_)=>{if(_completion==window)_completion=null;};window.Show();window.CompletionList.SelectItem(context.Prefix);

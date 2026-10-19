@@ -26,13 +26,13 @@ public sealed class ConnectionDialog : Window
         _poolMin.Text=p.MinimumPoolSize.ToString();_poolMax.Text=p.MaximumPoolSize.ToString();_ssh.IsChecked=p.Ssh.Enabled;
         _sshHost.Text=p.Ssh.Host;_sshPort.Text=p.Ssh.Port.ToString();_sshUser.Text=p.Ssh.Username;_sshPassword.Text=p.Ssh.Password;_keyPath.Text=p.Ssh.PrivateKeyPath;_passphrase.Text=p.Ssh.Passphrase;_fingerprint.Text=p.Ssh.HostKeyFingerprint;
         var panel=new StackPanel{Margin=new Thickness(26),Spacing=8};
-        panel.Children.Add(new TextBlock{Text="连接到数据库",FontSize=24,FontWeight=Avalonia.Media.FontWeight.SemiBold});
-        panel.Children.Add(new TextBlock{Text="配置服务器信息，测试后保存。TDengine 使用 taosAdapter REST。",FontSize=12,Opacity=0.6,TextWrapping=Avalonia.Media.TextWrapping.Wrap});
+        panel.Children.Add(new TextBlock{Text="连接到数据库",FontSize=23,FontWeight=Avalonia.Media.FontWeight.SemiBold});
+        panel.Children.Add(new TextBlock{Text="配置服务器信息，测试后保存。TDengine 使用 taosAdapter REST。",FontSize=11,Opacity=0.6,TextWrapping=Avalonia.Media.TextWrapping.Wrap});
         Add(panel,"连接名称",_name);Add(panel,"分组（可直接输入新分组名称）",_group);Add(panel,"数据库类型",_kind);
         Add(panel,"主机地址",_host);Add(panel,"端口",_port);Add(panel,"默认数据库",_database);Add(panel,"用户名",_username);Add(panel,"密码",_password);Add(panel,"连接超时（秒）",_timeout);Add(panel,"TDengine 时区",_timezone);
         panel.Children.Add(_ssl);panel.Children.Add(_publicKey);panel.Children.Add(_integrated);Add(panel,"最小连接池",_poolMin);Add(panel,"最大连接池",_poolMax);
         panel.Children.Add(_ssh);Add(panel,"SSH 主机",_sshHost);Add(panel,"SSH 端口",_sshPort);Add(panel,"SSH 用户名",_sshUser);Add(panel,"SSH 密码",_sshPassword);Add(panel,"私钥文件（优先使用）",_keyPath);Add(panel,"私钥口令",_passphrase);Add(panel,"SSH 指纹（SHA256:…）",_fingerprint);
-        panel.Children.Add(new TextBlock{Text="首次测试会显示 SSH 指纹，核对后填入。数据库主机填写从 SSH 服务器访问的地址。隧道连接不复用连接池。",TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontSize=12});panel.Children.Add(_message);
+        panel.Children.Add(new TextBlock{Text="首次测试会显示 SSH 指纹，核对后填入。数据库主机填写从 SSH 服务器访问的地址。隧道连接不复用连接池。",TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontSize=11});panel.Children.Add(_message);
         var actions=new StackPanel{Orientation=Orientation.Horizontal,Spacing=10,HorizontalAlignment=HorizontalAlignment.Right};
         var test=new Button{Content="测试连接"};var save=new Button{Content="保存连接"};save.Classes.Add("primary");var cancel=new Button{Content="取消"};
         test.Click+=async (_,_)=> {
@@ -53,7 +53,7 @@ public sealed class ConnectionDialog : Window
         };
     }
     private static void Add(StackPanel panel,string label,Control control)
-    {var row=new Grid{ColumnDefinitions=new ColumnDefinitions("185,*")};row.Children.Add(new TextBlock{Text=label,VerticalAlignment=VerticalAlignment.Center,FontSize=12});Grid.SetColumn(control,1);row.Children.Add(control);panel.Children.Add(row);}
+    {var row=new Grid{ColumnDefinitions=new ColumnDefinitions("185,*")};row.Children.Add(new TextBlock{Text=label,VerticalAlignment=VerticalAlignment.Center,FontSize=11});Grid.SetColumn(control,1);row.Children.Add(control);panel.Children.Add(row);}
     private ConnectionProfile Read()
     {
         if(string.IsNullOrWhiteSpace(_name.Text)||string.IsNullOrWhiteSpace(_host.Text)||string.IsNullOrWhiteSpace(_group.Text)) throw new InvalidOperationException("请填写连接名称、分组和主机地址。");

@@ -3,6 +3,7 @@ using System.Data.Common;
 using DbStudio.Models;
 using Npgsql;
 using NpgsqlTypes;
+using Microsoft.Data.SqlClient;
 
 namespace DbStudio.Providers;
 
@@ -19,6 +20,7 @@ public static class RelationalBatchWriter
                 foreach(var value in plan.Parameters){var parameter=command.CreateParameter();parameter.ParameterName=value.Name;parameter.Value=value.Value??DBNull.Value;
                     // Let PostgreSQL infer destination types for JSON, enums and other string-backed types.
                     if(parameter is NpgsqlParameter np && value.Value is string)np.NpgsqlDbType=NpgsqlDbType.Unknown;
+                    if(parameter is SqlParameter sp && value.Value is byte[])sp.SqlDbType=System.Data.SqlDbType.VarBinary;
                     command.Parameters.Add(parameter);
                 }
                 if(await command.ExecuteNonQueryAsync(ct)!=1)throw new DBConcurrencyException("数据已被其他操作修改或删除，本次全部变更将回滚。请先保留改动并刷新数据。");

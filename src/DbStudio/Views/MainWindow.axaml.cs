@@ -36,11 +36,15 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();DataContext=_vm;InitializeCompletion();
+        AddHandler(KeyDownEvent,WorkspaceKeyDown,Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        TableCatalogGrid.AddHandler(PointerPressedEvent,CatalogPointerPressed,RoutingStrategies.Tunnel,handledEventsToo:true);
+        TableCatalogGrid.AddHandler(ContextRequestedEvent,CatalogContextRequested,RoutingStrategies.Tunnel,handledEventsToo:true);
+        ObjectTree.ContextMenu!.Opening+=(_,_)=>{if(ObjectTree.SelectedItem is ObjectNode selected)BuildTreeContextMenu(selected);};
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(DatabaseKind.MySQL,false);
         SqlEditor.TextChanged+=(_,_)=>{if(!_loading && _displayedTab is not null)_displayedTab.Sql=SqlEditor.Text;};
         _vm.ResultChanged+=ShowResult;
         _vm.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(MainViewModel.Busy))UpdateEditControls();if(e.PropertyName is nameof(MainViewModel.Busy) or nameof(MainViewModel.ConnectionStatus))UpdateConnectionControls();};
-        Closed+=(_,_)=>_databaseRequest?.Cancel();
+        Closed+=(_,_)=>{_databaseRequest?.Cancel();_catalogCancellation?.Cancel();};
         Results.RowEditEnded+=(_,_)=>UpdateEditControls();
         Results.Sorting+=(_,e)=>{
             e.Handled=true;if(!FlushGridEdits() || _resultData is null)return;
@@ -66,7 +70,7 @@ public sealed partial class MainWindow : Window
             if(_closingCheck)return;_closingCheck=true;
             bool valid=FlushGridEdits();
             if((!valid || _vm.Tabs.Any(t=>t.IsDirty || t.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain))) && !await Confirm("有尚未保存的 SQL 或未提交的数据改动。确定关闭并放弃本地改动？结果未知的事务仍需核对数据库。","放弃本地改动")){_closingCheck=false;return;}
-            try{_vm.Settings.Width=Width;_vm.Settings.Height=Height;_vm.Settings.SidebarWidth=WorkspaceGrid.ColumnDefinitions[0].ActualWidth;_vm.Settings.EditorRatio=EditorWorkspaceGrid.RowDefinitions[2].ActualHeight/Math.Max(1,EditorWorkspaceGrid.RowDefinitions[4].ActualHeight);await _vm.Store.SaveSettingsAsync(_vm.Settings);}
+            try{_vm.Settings.Width=Width;_vm.Settings.Height=Height;CaptureWorkspaceLayout();await _vm.Store.SaveSettingsAsync(_vm.Settings);}
             catch(Exception ex){_vm.Log("布局保存失败："+ex.Message);}
             _closingSaved=true;Close();
         };
@@ -75,13 +79,17 @@ public sealed partial class MainWindow : Window
     {
         RequestedThemeVariant=_vm.Settings.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
         Width=Math.Clamp(_vm.Settings.Width,1040,3840);Height=Math.Clamp(_vm.Settings.Height,680,2160);
-        WorkspaceGrid.ColumnDefinitions[0].Width=new GridLength(Math.Clamp(_vm.Settings.SidebarWidth,180,500));
+        _sidebarWidthBeforeCollapse=Math.Clamp(_vm.Settings.SidebarWidth,180,500);
+        WorkspaceGrid.ColumnDefinitions[0].Width=new GridLength(SidebarPanel.IsVisible?_sidebarWidthBeforeCollapse:0);
         SqlEditor.FontSize=Math.Clamp(_vm.Settings.FontSize,10,30);SqlEditor.WordWrap=_vm.Settings.WordWrap;SqlEditor.ShowLineNumbers=_vm.Settings.LineNumbers;
         SqlEditor.FontFamily=new Avalonia.Media.FontFamily(_vm.Settings.FontFamily);
         EditorWorkspaceGrid.RowDefinitions[2].Height=new GridLength(Math.Clamp(_vm.Settings.EditorRatio,.2,5),GridUnitType.Star);
         EditorWorkspaceGrid.RowDefinitions[4].Height=new GridLength(1,GridUnitType.Star);
+        _expandedEditorHeight=EditorWorkspaceGrid.RowDefinitions[2].Height;_expandedResultsHeight=EditorWorkspaceGrid.RowDefinitions[4].Height;
+        if(!EditorPane.IsVisible){EditorWorkspaceGrid.RowDefinitions[2].Height=new GridLength(0);EditorWorkspaceGrid.RowDefinitions[3].Height=new GridLength(0);}
         try{KeyGesture.Parse(_vm.Settings.ExecuteGesture);KeyGesture.Parse(_vm.Settings.CompletionGesture);}catch{_vm.Settings.ExecuteGesture="Ctrl+Enter";_vm.Settings.CompletionGesture="Ctrl+Space";}
-        SqlEditor.Foreground=_vm.Settings.Dark ? Avalonia.Media.Brushes.Gainsboro : Avalonia.Media.Brushes.Black;
+        SqlEditor.Foreground=Avalonia.Media.Brush.Parse(_vm.Settings.Dark?"#E2EAF3":"#263648");
+        SqlEditor.LineNumbersForeground=Avalonia.Media.Brush.Parse(_vm.Settings.Dark?"#839AAF":"#8A9AA9");
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(_vm.Connection?.Kind??DatabaseKind.MySQL,_vm.Settings.Dark);
     }
     private int Size => int.Parse((PageSize.SelectedItem as ComboBoxItem)?.Content?.ToString()??"100");
@@ -93,7 +101,7 @@ public sealed partial class MainWindow : Window
     {if(_vm.Connection is not {} current)return;var p=MainViewModel.CloneForDatabase(current,null);p.Id=Guid.NewGuid();p.Name+=" 副本";await _vm.SaveProfileAsync(p);}
     private async void DeleteConnection(object? sender,RoutedEventArgs e)
     {if(_vm.Connection is {} p && await Confirm($"删除连接“{p.Name}”？数据库中的数据不会被删除。"))await _vm.DeleteProfileAsync(p);}
-    private void NewQuery(object? sender,RoutedEventArgs e){if(!_vm.Busy)_vm.NewQuery();}
+    private void NewQuery(object? sender,RoutedEventArgs e){if(_vm.Busy)return;CloseCatalog();if(FlushGridEdits())_vm.NewQuery();}
     private async void CloseTab(object? sender,RoutedEventArgs e)
     {
         if(_vm.Busy){_vm.Log("请先终止当前查询。");return;}
@@ -104,6 +112,7 @@ public sealed partial class MainWindow : Window
     private void ChangeTab(object? sender,SelectionChangedEventArgs e)
     {
         if(SqlEditor is null)return;
+        CloseCatalog();
         if(!FlushGridEdits()){_vm.Tab=_displayedTab;return;}
         CancelCompletion();_displayedTab=QueryTabs.SelectedItem as QueryTab;_loading=true;SqlEditor.Text=_displayedTab?.Sql??"";_loading=false;
         _vm.SelectTab(_displayedTab);PageLabel.Text=$"第 {(_displayedTab?.Page??0)+1} 页";
@@ -113,6 +122,7 @@ public sealed partial class MainWindow : Window
     private void ChangeConnection(object? sender,SelectionChangedEventArgs e)
     {
         if(_displayedTab is null || _vm.Connection is null)return;
+        CloseCatalog();
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(_vm.Connection.Kind,_vm.Settings.Dark);
         if(_displayedTab.Connection?.Id!=_vm.Connection.Id){
             if(!FlushGridEdits() || _displayedTab.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain)){
@@ -128,7 +138,7 @@ public sealed partial class MainWindow : Window
         var sql=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?SqlEditor.Text:SqlEditor.SelectedText;if(!string.IsNullOrWhiteSpace(sql)&&FlushGridEdits())await _vm.ExplainAsync(sql);
     }
     private async void ConnectDatabase(object? sender,RoutedEventArgs e){await _vm.ConnectAsync();await RefreshDatabasePicker(true);}
-    private void DisconnectDatabase(object? sender,RoutedEventArgs e){_databaseRequest?.Cancel();CancelCompletion();_vm.Disconnect();UpdateConnectionControls();}
+    private void DisconnectDatabase(object? sender,RoutedEventArgs e){CloseCatalog();_databaseRequest?.Cancel();CancelCompletion();_vm.Disconnect();UpdateConnectionControls();}
     private async void OpenChart(object? sender,RoutedEventArgs e)
     {
         if(_vm.Tab?.Result is not {Columns.Count:>0} result){_vm.Log("请先执行查询。");return;}
@@ -141,6 +151,8 @@ public sealed partial class MainWindow : Window
     }
     private async Task Run()
     {
+        CloseCatalog();
+        if(!EditorPane.IsVisible)SetEditorVisible(true);
         var sql=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?SqlEditor.Text:SqlEditor.SelectedText;
         if(string.IsNullOrWhiteSpace(sql))return;
         if(!FlushGridEdits())return;
@@ -148,6 +160,14 @@ public sealed partial class MainWindow : Window
         int baseLine=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?0:SqlEditor.Document.GetLineByOffset(SqlEditor.SelectionStart).LineNumber-1;
         await _vm.ExecuteAsync(sql);
         if(_vm.LastScriptErrorLine is {} line){line=Math.Clamp(line+baseLine,1,SqlEditor.Document.LineCount);SqlEditor.CaretOffset=SqlEditor.Document.GetLineByNumber(line).Offset;SqlEditor.ScrollToLine(line);}
+    }
+    private void WorkspaceKeyDown(object? sender,KeyEventArgs e)
+    {
+        if(e.Key==Key.F&&(e.KeyModifiers&(KeyModifiers.Control|KeyModifiers.Meta))!=0&&e.KeyModifiers.HasFlag(KeyModifiers.Shift)){e.Handled=true;ToggleFocusMode(sender,new RoutedEventArgs());return;}
+        if((e.KeyModifiers&(KeyModifiers.Control|KeyModifiers.Meta))==0 || (e.KeyModifiers&(KeyModifiers.Alt|KeyModifiers.Shift))!=0)return;
+        if(e.Key==Key.S){e.Handled=true;SaveScript(sender,new RoutedEventArgs());}
+        else if(e.Key==Key.N){e.Handled=true;NewQuery(sender,new RoutedEventArgs());}
+        else if(e.Key==Key.W){e.Handled=true;CloseTab(sender,new RoutedEventArgs());}
     }
     private async void EditorKeyDown(object? sender,KeyEventArgs e)
     {
@@ -165,11 +185,13 @@ public sealed partial class MainWindow : Window
     private async void OpenNodeMenu(object? sender,RoutedEventArgs e)=>await OpenSelected();
     private async Task OpenSelected()
     {
-        if(ObjectTree.SelectedItem is not ObjectNode node)return;
+        if(_vm.Busy || ObjectTree.SelectedItem is not ObjectNode node)return;
+        if(node.Object is null&&!TryUseTreeContext(node))return;
         if(!node.IsGroup&&node.Object is null&&node.Database is null&&_vm.IsClosed(node.Profile)){_vm.Connection=node.Profile;await _vm.ConnectAsync();}
-        if(node.Database is {} database&&node.Object is null){try{if(!FlushGridEdits())return;_vm.Connection=node.Profile;_vm.SelectDatabase(database);}catch(Exception ex){_vm.Log(ex.Message);return;}}
-        if(node.Object is not null)await _vm.OpenTableAsync(node,Size);else await _vm.ExpandAsync(node);
+        if(node.Database is {} database&&node.Object is null){try{if(!FlushGridEdits())return;_vm.Connection=node.Profile;if(_vm.CurrentProfile?.Database!=database)_vm.SelectDatabase(database);}catch(Exception ex){_vm.Log(ex.Message);return;}}
+        if(node.Object is not null){CloseCatalog();await _vm.OpenTableAsync(node,Size);}else await _vm.ExpandAsync(node);
         await RefreshDatabasePicker();
+        if(node.Database is not null && node.Object is null)await ShowTableCatalog();
     }
     private void RefreshTree(object? sender,RoutedEventArgs e)=>_vm.RebuildTree();
     private void FilterObjects(object? sender,TextChangedEventArgs e)
@@ -187,6 +209,11 @@ public sealed partial class MainWindow : Window
             bool child=ApplyTreeFilter(item.Children,text,match);item.Visible=string.IsNullOrEmpty(text)||match||child;any|=item.Visible;
         }
         return any;
+    }
+    private async void FilterKeyDown(object? sender,KeyEventArgs e)
+    {
+        if(e.Key==Key.Enter){e.Handled=true;await Browse(0);}
+        else if(e.Key==Key.Escape){e.Handled=true;WhereFilter.Text="";await Browse(0);}
     }
     private async void ApplyFilter(object? sender,RoutedEventArgs e)=>await Browse(0);
     private async void PreviousPage(object? sender,RoutedEventArgs e)=>await Browse(Math.Max(0,(_vm.Tab?.Page??0)-1));
@@ -227,12 +254,18 @@ public sealed partial class MainWindow : Window
     private async void ViewStructure(object? sender,RoutedEventArgs e)
     {
         if(ObjectTree.SelectedItem is not ObjectNode{Object:{} obj} node)return;
+        await ShowTableStructure(node.Profile,obj);
+    }
+    private async Task ShowTableStructure(ConnectionProfile profile,DbObject obj)
+    {
         await _vm.Guard(async ct=>{
-            await using var provider=DbProviderFactory.Create(MainViewModel.CloneForDatabase(node.Profile,node.Database));
+            await using var provider=DbProviderFactory.Create(MainViewModel.CloneForDatabase(profile,obj.Database));
             var columns=await provider.ColumnsAsync(obj,ct);var indexes=await provider.IndexesAsync(obj,ct);
             var grid=new DataGrid{ItemsSource=columns,AutoGenerateColumns=true,IsReadOnly=true,Margin=new Thickness(10)};
             var indexGrid=new DataGrid{ItemsSource=indexes,AutoGenerateColumns=true,IsReadOnly=true,Margin=new Thickness(10)};
-            var tabs=new TabControl{ItemsSource=new[]{new TabItem{Header="字段与标签",Content=grid},new TabItem{Header="索引",Content=indexGrid}}};
+            var definition=SqlTools.FormatDdl(await provider.DefinitionAsync(obj,ct));
+            var ddl=new TextBox{Text=definition,IsReadOnly=true,AcceptsReturn=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontFamily="Cascadia Code,Consolas,monospace",Margin=new Thickness(10)};
+            var tabs=new TabControl{ItemsSource=new[]{new TabItem{Header="字段与标签",Content=grid},new TabItem{Header="索引",Content=indexGrid},new TabItem{Header="建表语句",Content=ddl}}};
             await new Window{Title=$"表结构 · {obj}",Width=950,Height=550,Content=tabs,WindowStartupLocation=WindowStartupLocation.CenterOwner}.ShowDialog(this);
         });
     }
@@ -319,8 +352,8 @@ public sealed partial class MainWindow : Window
         var panel=new StackPanel{Margin=new Thickness(24),Spacing=14};
         var picker=new ComboBox{ItemsSource=_vm.Groups,HorizontalAlignment=HorizontalAlignment.Stretch};
         var name=new TextBox{Watermark="输入分组名称"};picker.SelectionChanged+=(_,_)=>name.Text=picker.SelectedItem?.ToString();
-        panel.Children.Add(new TextBlock{Text="创建、重命名或删除分组",FontSize=20});panel.Children.Add(picker);panel.Children.Add(name);
-        panel.Children.Add(new TextBlock{Text="拖动连接到分组可调整归属。删除分组会保留连接。",FontSize=12,Opacity=0.6,TextWrapping=Avalonia.Media.TextWrapping.Wrap});
+        panel.Children.Add(new TextBlock{Text="创建、重命名或删除分组",FontSize=19});panel.Children.Add(picker);panel.Children.Add(name);
+        panel.Children.Add(new TextBlock{Text="拖动连接到分组可调整归属。删除分组会保留连接。",FontSize=11,Opacity=0.6,TextWrapping=Avalonia.Media.TextWrapping.Wrap});
         var row=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8};
         foreach(var caption in new[]{"新建","重命名","删除"}){
             var button=new Button{Content=caption};
@@ -341,7 +374,10 @@ public sealed partial class MainWindow : Window
     private void TreePointerPressed(object? sender,PointerPressedEventArgs e)
     {
         _dragStart=e.GetPosition(ObjectTree);_dragNode=ItemAt<ObjectNode>(e.Source);
-        if(e.GetCurrentPoint(ObjectTree).Properties.IsRightButtonPressed && _dragNode is not null){ObjectTree.SelectedItem=_dragNode;if(!_dragNode.IsGroup){_vm.Connection=_dragNode.Profile;if(_dragNode.Database is {} database&&_vm.Connection?.Id==_dragNode.Profile.Id&&database!=_vm.CurrentProfile?.Database)try{if(FlushGridEdits())_vm.SelectDatabase(database);}catch(Exception ex){_vm.Log(ex.Message);}_=RefreshDatabasePicker();}}
+        if(e.GetCurrentPoint(ObjectTree).Properties.IsRightButtonPressed){
+            if(_dragNode is null){ObjectTree.ContextMenu!.ItemsSource=Array.Empty<Control>();return;}
+            ObjectTree.SelectedItem=_dragNode;BuildTreeContextMenu(_dragNode);
+        }
     }
     private async void TreePointerMoved(object? sender,PointerEventArgs e)
     {
@@ -353,7 +389,7 @@ public sealed partial class MainWindow : Window
     private async void TreeDrop(object? sender,DragEventArgs e)
     {if(ItemAt<ObjectNode>(e.Source) is {IsGroup:true} group && Guid.TryParse(e.Data.Get("DbStudio.Connection")?.ToString(),out var id))await _vm.MoveConnectionAsync(id,group.Label);e.Handled=true;}
     private void TabsPointerPressed(object? sender,PointerPressedEventArgs e)
-    {_dragStart=e.GetPosition(QueryTabs);_dragTab=ItemAt<QueryTab>(e.Source);}
+    {_dragStart=e.GetPosition(QueryTabs);_dragTab=ItemAt<QueryTab>(e.Source);if(_dragTab is not null&&e.GetCurrentPoint(QueryTabs).Properties.IsLeftButtonPressed)CloseCatalog();}
     private async void TabsPointerMoved(object? sender,PointerEventArgs e)
     {
         if(_dragTab is not {} tab || !e.GetCurrentPoint(QueryTabs).Properties.IsLeftButtonPressed || Distance(e.GetPosition(QueryTabs),_dragStart)<8)return;

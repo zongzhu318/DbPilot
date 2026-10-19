@@ -18,7 +18,9 @@ public sealed partial class MainWindow
         DatabasePicker.IsEnabled=p is not null&&!_vm.IsClosed(p)&&!_vm.Busy;
         OpenConnectionButton.IsEnabled=p is not null&&!_vm.IsOpen(p)&&!_vm.Busy;
         CloseConnectionButton.IsEnabled=p is not null&&_vm.IsOpen(p);
+        ShowTablesButton.IsEnabled=p is not null&&!_vm.IsClosed(p)&&!_vm.Busy&&!string.IsNullOrWhiteSpace(_vm.CurrentProfile?.Database);
         if(p is not null&&_vm.IsClosed(p)){_databaseRequest?.Cancel();CancelCompletion();}
+        if(Results is not null)UpdateEditControls();
     }
     private async Task RefreshDatabasePicker(bool reload=false)
     {
@@ -39,10 +41,10 @@ public sealed partial class MainWindow
         }catch(OperationCanceledException){}catch(Exception ex){_vm.Log("数据库列表加载失败："+ex.Message,"Warn");}
         finally{_loadingDatabases=false;if(_databaseRequest==request)_databaseRequest=null;}
     }
-    private void ChangeDatabase(object? sender,SelectionChangedEventArgs e)
+    private async void ChangeDatabase(object? sender,SelectionChangedEventArgs e)
     {
         if(_loadingDatabases||DatabasePicker.SelectedItem is not string database||database==_vm.CurrentProfile?.Database)return;
-        try{if(!FlushGridEdits())throw new InvalidOperationException("请完成当前单元格输入。");_vm.SelectDatabase(database);CancelCompletion();_objectSuggestions.Clear();_columnSuggestions.Clear();WhereFilter.Text="";PageLabel.Text="第 1 页";}
+        try{if(!FlushGridEdits())throw new InvalidOperationException("请完成当前单元格输入。");_vm.SelectDatabase(database);CancelCompletion();_objectSuggestions.Clear();_columnSuggestions.Clear();WhereFilter.Text="";PageLabel.Text="第 1 页";await ShowTableCatalog();}
         catch(Exception ex){_vm.Log(ex.Message);_loadingDatabases=true;DatabasePicker.SelectedItem=_vm.CurrentProfile?.Database;_loadingDatabases=false;}
     }
     private async void ReloadDatabases(object? sender,RoutedEventArgs e)=>await RefreshDatabasePicker(true);
@@ -98,11 +100,18 @@ public sealed partial class MainWindow
     private async void RenameTable(object? sender,RoutedEventArgs e)
     {
         try{
-            var (profile,table)=SelectedTable();if(!FlushGridEdits())return;_vm.EnsureObjectHasNoDrafts(profile,table);
+            var (profile,table)=SelectedTable();await RenameTableAsync(profile,table);
+        }catch(Exception ex){_vm.Log(ex.Message);}
+    }
+    private async Task RenameTableAsync(ConnectionProfile profile,DbObject table)
+    {
+        try{
+            if(_vm.Busy||_vm.IsClosed(profile))throw new InvalidOperationException("请先打开连接并等待当前任务完成。");
+            if(!FlushGridEdits())return;_vm.EnsureObjectHasNoDrafts(profile,table);
             if(profile.Kind==DatabaseKind.TDengine)throw new NotSupportedException("TDengine 当前不支持表重命名。");
             await using var provider=DbProviderFactory.Create(profile);
             var dialog=new Window{Title="重命名表 · "+table.Name,Width=540,Height=240,WindowStartupLocation=WindowStartupLocation.CenterOwner};var name=new TextBox{Text=table.Name};var status=new TextBlock{TextWrapping=Avalonia.Media.TextWrapping.Wrap};var rename=new Button{Content="重命名"};var panel=new StackPanel{Margin=new Thickness(20),Spacing=12};panel.Children.Add(new TextBlock{Text="新表名（数据库："+table.Database+"）"});panel.Children.Add(name);panel.Children.Add(status);panel.Children.Add(rename);dialog.Content=panel;
-            rename.Click+=async(_,_)=>{try{_vm.EnsureObjectHasNoDrafts(profile,table);rename.IsEnabled=false;if(await _vm.ExecuteDdlAsync(profile,DatabaseDdl.RenameTable(provider,profile.Kind,table,name.Text??""))){_vm.InvalidateObject(profile,table);dialog.Close();await RefreshObjects(profile,table.Database);}else status.Text=_vm.Status;}catch(Exception ex){status.Text=ex.Message;}finally{rename.IsEnabled=true;}};await dialog.ShowDialog(this);
+            rename.Click+=async(_,_)=>{try{_vm.EnsureObjectHasNoDrafts(profile,table);rename.IsEnabled=false;if(await _vm.ExecuteDdlAsync(profile,DatabaseDdl.RenameTable(provider,profile.Kind,table,name.Text??""))){_vm.InvalidateObject(profile,table);dialog.Close();await RefreshObjects(profile,table.Database);if(TableCatalogPanel.IsVisible)await ShowTableCatalog();}else status.Text=_vm.Status;}catch(Exception ex){status.Text=ex.Message;}finally{rename.IsEnabled=true;}};await dialog.ShowDialog(this);
         }catch(Exception ex){_vm.Log(ex.Message);}
     }
     private async void DropTable(object? sender,RoutedEventArgs e)

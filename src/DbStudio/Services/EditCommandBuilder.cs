@@ -16,6 +16,13 @@ public static class EditCommandBuilder
             if(change.Kind!=RowChangeKind.Insert && (!schema.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(change.Original.Keys)||keys.Any(k=>change.Original[k.Name] is null or DBNull)))throw new InvalidOperationException("原始数据或主键信息不完整，请刷新后重试。");
             var parameters=new List<EditParameter>();
             string Param(object? value){var name="@p"+parameters.Count;parameters.Add(new(name,value is DBNull ? null : value));return name;}
+            string ColumnParam(ColumnInfo column,object? value){
+                var parameter=Param(value);
+                // A NULL SqlParameter defaults to nvarchar; cast it explicitly for binary columns.
+                if(kind==DatabaseKind.SqlServer && (column.Type.Contains("binary",StringComparison.OrdinalIgnoreCase)||column.Type.Equals("image",StringComparison.OrdinalIgnoreCase)) && value is null or DBNull)
+                    return $"CONVERT(varbinary(max), {parameter})";
+                return parameter;
+            }
             foreach(var (name,value) in change.Values)if(value is null or DBNull && !schema[name].Nullable)throw new InvalidOperationException($"字段 {name} 不允许 NULL。");
             string sql;
             if(change.Kind==RowChangeKind.Insert){
@@ -29,9 +36,9 @@ public static class EditCommandBuilder
                     if(kind==DatabaseKind.MySQL && type=="json")return name+" = CAST("+Param(value)+" AS JSON)";
                     if(kind==DatabaseKind.PostgreSQL && type is "json" or "jsonb" or "xml")name+="::text";
                     if(kind==DatabaseKind.SqlServer && type is "text" or "ntext" or "xml")name=$"CONVERT(nvarchar(max), {name})";
-                    return name+" = "+Param(value);
+                    return name+" = "+ColumnParam(column,value);
                 }
-                var set=change.Kind==RowChangeKind.Update ? string.Join(", ",change.Values.Select(p=>provider.Quote(p.Key)+" = "+Param(p.Value))) : "";
+                var set=change.Kind==RowChangeKind.Update ? string.Join(", ",change.Values.Select(p=>provider.Quote(p.Key)+" = "+ColumnParam(schema[p.Key],p.Value))) : "";
                 if(change.Kind==RowChangeKind.Update && set.Length==0)continue;
                 var where=string.Join(" AND ",columns.OrderByDescending(c=>c.PrimaryKey).Select(Predicate));
                 sql=change.Kind==RowChangeKind.Delete ? $"DELETE FROM {provider.Qualified(table)} WHERE {where};" : $"UPDATE {provider.Qualified(table)} SET {set} WHERE {where};";

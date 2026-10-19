@@ -10,13 +10,14 @@ public static class SqlHighlighting
     {
         var words="SELECT FROM WHERE ORDER BY GROUP HAVING JOIN LEFT RIGHT INNER OUTER ON AS AND OR NOT NULL IS INSERT INTO VALUES UPDATE SET DELETE CREATE TABLE INDEX LIMIT OFFSET FETCH NEXT ROWS ONLY DISTINCT UNION ALL DESC ASC CASE WHEN THEN ELSE END DROP ALTER PRIMARY KEY UNIQUE DEFAULT DATABASE SCHEMA EXPLAIN BEGIN COMMIT ROLLBACK TRUE FALSE IN EXISTS BETWEEN LIKE WITH OVER PARTITION COUNT SUM AVG MAX MIN";
         words+=kind switch{DatabaseKind.TDengine=>" STABLE TAGS INTERVAL SLIDING FILL SESSION STATE_WINDOW TBNAME TIMETRUNCATE TTL KEEP VGROUPS",DatabaseKind.SqlServer=>" TOP GO NVARCHAR IDENTITY MERGE OUTPUT",DatabaseKind.PostgreSQL=>" RETURNING SERIAL JSONB ILIKE CONFLICT",_=>" AUTO_INCREMENT ENGINE SHOW DESCRIBE REPLACE"};
-        var keyword=dark?"#86B9FF":"#1859B8";var literal=dark?"#E5BA86":"#985B18";
+        var keyword=dark?"#82B9F5":"#285EA7";var literal=dark?"#E3BE8B":"#956029";
+        var comment=dark?"#83B8A9":"#56836D";var number=dark?"#C5A0E6":"#8753A4";
         var definition=$$"""
         <SyntaxDefinition name="SQL" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
           <Color name="Keyword" foreground="{{keyword}}" fontWeight="bold" />
           <Color name="String" foreground="{{literal}}" />
-          <Color name="Comment" foreground="#6D9278" fontStyle="italic" />
-          <Color name="Number" foreground="#A270BD" />
+          <Color name="Comment" foreground="{{comment}}" fontStyle="italic" />
+          <Color name="Number" foreground="{{number}}" />
           <RuleSet ignoreCase="true">
             <Span color="Comment" begin="--" />
             <Span color="Comment" multiline="true" begin="/\*" end="\*/" />

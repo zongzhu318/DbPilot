@@ -11,10 +11,11 @@ public sealed partial class MainViewModel
     public bool IsOpen(ConnectionProfile profile)=>_connected.Contains(profile.Id);
     public ConnectionProfile DefaultProfile(ConnectionProfile profile)=>CloneForDatabase(profile,_selectedDatabases.GetValueOrDefault(profile.Id,profile.Database));
     public ConnectionProfile? CurrentProfile=>Connection is not {} p?null:Tab?.Connection?.Id==p.Id?Tab.Connection:CloneForDatabase(p,_selectedDatabases.GetValueOrDefault(p.Id,p.Database));
-    private string ConnectionNodeLabel(ConnectionProfile p)=>$"{(_connected.Contains(p.Id)?"●":"○")}  {p.Name}  [{p.Kind}] · {(_connected.Contains(p.Id)?"已打开":"已关闭")}";
+    private string ConnectionIconColor(ConnectionProfile p)=>!_connected.Contains(p.Id)?"#858B93":p.Kind switch{DatabaseKind.MySQL=>"#25B95A",DatabaseKind.PostgreSQL=>"#347AB5",DatabaseKind.SqlServer=>"#EC981B",_=>"#00A6A6"};
+    private string ConnectionNodeLabel(ConnectionProfile p)=>$"{p.Name} · {(_connected.Contains(p.Id)?"已打开":"已关闭")}";
     private void UpdateConnectionNodes(ConnectionProfile profile,bool clear=false){
         foreach(var node in Nodes.SelectMany(n=>n.Children).Where(n=>n.Profile.Id==profile.Id)){
-            node.Label=ConnectionNodeLabel(profile);
+            node.Label=ConnectionNodeLabel(profile);node.IconColor=ConnectionIconColor(profile);
             if(clear){node.Loaded=false;node.Children.Clear();node.Children.Add(new(){Label="打开连接后加载数据库",Profile=profile,Loaded=true});}
         }
     }

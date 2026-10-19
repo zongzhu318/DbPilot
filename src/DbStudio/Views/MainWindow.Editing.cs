@@ -28,12 +28,17 @@ public sealed partial class MainWindow
     }
     private void UpdateEditControls()
     {
-        var session=_vm.Tab?.Edits;bool writable=session is {CommitUncertain:false} && !_vm.Busy;
+        var session=_vm.Tab?.Edits;EditToolbar.IsVisible=session is not null;bool writable=session is {CommitUncertain:false} && !_vm.Busy && (_vm.Tab?.Connection is not {} connection || !_vm.IsClosed(connection));
         Results.IsReadOnly=!writable;Results.IsEnabled=!_vm.Busy;
         QueryTabs.IsEnabled=!_vm.Busy;ConnectionPicker.IsEnabled=!_vm.Busy;
+        bool browse=!_vm.Busy && _vm.Tab?.Table is not null && _vm.Tab.Connection is {} profile && !_vm.IsClosed(profile);
+        WhereFilter.IsEnabled=browse;ApplyFilterButton.IsEnabled=browse;
+        PreviousPageButton.IsEnabled=browse&&_vm.Tab!.Page>0;
+        NextPageButton.IsEnabled=browse&&(_vm.Tab!.Result?.Rows.Count??0)>=_vm.Tab.PageSize;
+        ExecuteSqlButton.IsEnabled=!_vm.Busy&&_vm.CurrentProfile is {} active&&!_vm.IsClosed(active);StopSqlButton.IsEnabled=_vm.Busy;
         AddRowButton.IsEnabled=writable;DeleteRowButton.IsEnabled=writable;NullCellButton.IsEnabled=writable;
         CommitEditsButton.IsEnabled=writable;RevertEditsButton.IsEnabled=session is not null && !_vm.Busy;
-        EditStatus.Text=session is null ? "只读 · 从对象树打开有主键的关系表可编辑" : session.CommitUncertain ? "提交结果未知 · 请核对数据库后重新加载" : $"待提交 {session.PendingCount} 行 · 双击单元格编辑";
+        EditStatus.Text=_vm.Tab?.Connection is {} closed&&_vm.IsClosed(closed)?"连接已关闭 · 本地改动已保留，重新连接后可继续":session is null ? "只读 · 从对象树打开有主键的关系表可编辑" : session.CommitUncertain ? "提交结果未知 · 请核对数据库后重新加载" : $"待提交 {session.PendingCount} 行 · 双击单元格编辑";
     }
     private bool FlushGridEdits()
     {

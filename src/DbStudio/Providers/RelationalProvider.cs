@@ -65,19 +65,31 @@ public sealed partial class RelationalProvider(ConnectionProfile profile) : IDbP
     public async Task<QueryResult> QueryAsync(string sql, int limit, CancellationToken ct)
     {
         var conn = await OpenAsync(ct);
-        await using var cmd = conn.CreateCommand(); cmd.CommandText = sql; cmd.CommandTimeout = 0;
-        await using var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SequentialAccess, ct);
-        var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToArray();
-        var types = Enumerable.Range(0, reader.FieldCount).Select(reader.GetFieldType).ToArray();
-        var rows = new List<object?[]>(); bool truncated = false;
-        while (await reader.ReadAsync(ct))
+        try
         {
-            if (rows.Count >= limit) { truncated = true; break; }
-            var row = new object?[reader.FieldCount];
-            for (int i = 0; i < row.Length; i++) row[i] = await reader.IsDBNullAsync(i, ct) ? null : reader.GetValue(i);
-            rows.Add(row);
+            await using var cmd = conn.CreateCommand(); cmd.CommandText = sql; cmd.CommandTimeout = 0;
+            await using var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SequentialAccess, ct);
+            var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToArray();
+            var types = Enumerable.Range(0, reader.FieldCount).Select(reader.GetFieldType).ToArray();
+            var rows = new List<object?[]>(); bool truncated = false;
+            while (await reader.ReadAsync(ct))
+            {
+                if (rows.Count >= limit) { truncated = true; break; }
+                var row = new object?[reader.FieldCount];
+                for (int i = 0; i < row.Length; i++) row[i] = await reader.IsDBNullAsync(i, ct) ? null : reader.GetValue(i);
+                rows.Add(row);
+            }
+            return new(columns, rows, reader.RecordsAffected, truncated,types);
         }
-        return new(columns, rows, reader.RecordsAffected, truncated,types);
+        catch (Exception) when (ct.IsCancellationRequested)
+        {
+            // SQL Server can leave a connection unusable after ATTENTION/cancel.
+            // Drop it so the next operation opens a clean session.
+            var stale = _connection;
+            _connection = null;
+            if (stale is not null) { try { await stale.DisposeAsync(); } catch { } }
+            throw new OperationCanceledException(ct);
+        }
     }
     private async Task<QueryResult> Metadata(string sql, CancellationToken ct, params (string, string)[] values)
     {
