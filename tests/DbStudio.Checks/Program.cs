@@ -59,7 +59,11 @@ foreach(var kind in Enum.GetValues<DatabaseKind>()){
 var formatted=SqlTools.Format("select 'select from', \"from\", `select` from t -- select\nwhere x = 'it''s from';");
 var ddlFormatted=SqlTools.FormatDdl("CREATE TABLE t (id int, amount decimal(12,3), note varchar(80) DEFAULT 'a,b (value)');");
 Check(ddlFormatted.Contains("\n    id int,")&&ddlFormatted.Contains("decimal(12,3)")&&ddlFormatted.Contains("'a,b (value)'"),"DDL formatting separates columns and preserves nested types and literals");
-Check(SqlTools.FormatDdl("CREATE TABLE t (id int, -- keep comment\n name text);").Contains("-- keep comment\n"),"DDL formatting preserves line-comment boundaries");
+foreach(var newline in new[]{"\n","\r\n","\r"}){
+    var commentDdl=SqlTools.FormatDdl($"CREATE TABLE t (id int, -- keep comment{newline} name text);");
+    Check(commentDdl.Contains($"-- keep comment{Environment.NewLine}    name text"),
+        $"DDL formatting preserves line-comment boundaries for {JsonSerializer.Serialize(newline)} input");
+}
 Check(formatted.Contains("SELECT 'select from', \"from\", `select` FROM t -- select"),"formatter preserves literals, identifiers and comments");
 Check(SqlTools.CsvCell("a,\"b\"\nc")=="\"a,\"\"b\"\"\nc\"","CSV handles quotes, commas and newlines");
 Check(SqlTools.Display(null)=="NULL","NULL rendering");
