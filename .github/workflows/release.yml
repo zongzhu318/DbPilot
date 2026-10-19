@@ -66,7 +66,7 @@ jobs:
         run: dotnet run --project tests/DbStudio.Checks/DbStudio.Checks.csproj -c Release
       - name: Verify macOS bundle signing regression
         if: runner.os == 'macOS'
-        run: python3 -m unittest discover -s scripts/release -p 'test_macos_signing.py'
+        run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
       - name: Import Apple signing certificate
         if: runner.os == 'macOS'
         env:
@@ -137,13 +137,7 @@ jobs:
           curl -fL --retry 3 https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz -o artifacts/sparkle.tar.xz
           echo 'c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c  artifacts/sparkle.tar.xz' | shasum -a 256 -c -
           tar -xf artifacts/sparkle.tar.xz -C artifacts/sparkle
-          python3 - <<'PYKEY'
-          import base64, os
-          private = base64.b64decode(os.environ['PRIVATE_KEY'].strip(), validate=True)
-          public = base64.b64decode(os.environ['PUBLIC_KEY'].strip(), validate=True)
-          if len(private) not in (64, 96) or private[-32:] != public:
-              raise SystemExit('Sparkle private key does not match SPARKLE_PUBLIC_KEY')
-          PYKEY
+          swift scripts/release/validate-sparkle-key.swift
           umask 077
           KEY_FILE="$RUNNER_TEMP/sparkle-private-key"
           trap 'rm -f "$KEY_FILE"' EXIT
