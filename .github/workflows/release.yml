@@ -1,35 +1,156 @@
-name: Build desktop packages
+name: Release installers and Sparkle updates
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (for example 0.3.1; no v prefix)'
+        required: true
+        type: string
   push:
     tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
 jobs:
-  publish:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test update feed generation
+        run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
+      - name: Validate version and public update key
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, re
+          version = os.environ['INPUT_VERSION'] if os.environ['EVENT_NAME']=='workflow_dispatch' else os.environ['TAG_NAME'].removeprefix('v')
+          if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', version):
+              raise SystemExit('Version must be a stable numeric version such as 0.3.1')
+          if len(base64.b64decode(os.environ['PUBLIC_KEY'], validate=True)) != 32:
+              raise SystemExit('Set repository variable SPARKLE_PUBLIC_KEY to the Ed25519 public key')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f: f.write(f'version={version}\n')
+          PY
+  build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             rid: win-x64
-          - os: ubuntu-22.04
-            rid: linux-x64
           - os: macos-14
             rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
     runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      RID: ${{ matrix.rid }}
+      REPOSITORY: ${{ github.repository }}
+      PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Install Linux rendering dependencies
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libfontconfig1 libfreetype6
       - name: Offline protocol and headless UI checks
         run: dotnet run --project tests/DbStudio.Checks/DbStudio.Checks.csproj -c Release
-      - name: Publish self-contained app
+      - name: Import Apple signing certificate
+        if: runner.os == 'macOS'
+        env:
+          CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        shell: bash
+        run: |
+          if [[ -n "$CERTIFICATE" ]]; then
+            printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/developer.p12"
+            KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/release.keychain-db"
+            security set-keychain-settings -lut 21600 "$RUNNER_TEMP/release.keychain-db"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/release.keychain-db"
+            security import "$RUNNER_TEMP/developer.p12" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$RUNNER_TEMP/release.keychain-db"
+            security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/release.keychain-db"
+            security list-keychains -d user -s "$RUNNER_TEMP/release.keychain-db" login.keychain-db
+          fi
+      - name: Build macOS DMG with Sparkle
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: bash scripts/release/package-macos.sh
+      - name: Build Windows EXE installer with WinSparkle
+        if: runner.os == 'Windows'
         shell: pwsh
-        run: ./publish.ps1 -Runtime '${{ matrix.rid }}'
+        run: ./scripts/release/package-windows.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: DbStudio-${{ matrix.rid }}
-          path: artifacts/${{ matrix.rid }}/
+          name: installer-${{ matrix.rid }}
+          path: artifacts/installers/*
+          if-no-files-found: error
+      - name: Remove temporary Apple keychain
+        if: always() && runner.os == 'macOS'
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/release.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/release.keychain-db"
+          fi
+          rm -f "$RUNNER_TEMP/developer.p12"
+  release:
+    needs: [prepare, build]
+    runs-on: macos-14
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      RELEASE_TARGET: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          merge-multiple: true
+          path: artifacts/installers
+      - name: Sign installers and generate appcasts
+        env:
+          PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$PRIVATE_KEY" || { echo 'Set SPARKLE_PRIVATE_KEY secret'; exit 1; }
+          mkdir -p artifacts/sparkle
+          curl -fL --retry 3 https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz -o artifacts/sparkle.tar.xz
+          echo 'c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c  artifacts/sparkle.tar.xz' | shasum -a 256 -c -
+          tar -xf artifacts/sparkle.tar.xz -C artifacts/sparkle
+          python3 - <<'PYKEY'
+          import base64, os
+          private = base64.b64decode(os.environ['PRIVATE_KEY'].strip(), validate=True)
+          public = base64.b64decode(os.environ['PUBLIC_KEY'].strip(), validate=True)
+          if len(private) not in (64, 96) or private[-32:] != public:
+              raise SystemExit('Sparkle private key does not match SPARKLE_PUBLIC_KEY')
+          PYKEY
+          umask 077
+          KEY_FILE="$RUNNER_TEMP/sparkle-private-key"
+          trap 'rm -f "$KEY_FILE"' EXIT
+          printf '%s' "$PRIVATE_KEY" > "$KEY_FILE"
+          python3 scripts/release/generate-appcasts.py --directory artifacts/installers --repository "$REPOSITORY" --version "$VERSION" --signer artifacts/sparkle/bin/sign_update --key-file "$KEY_FILE"
+      - name: Publish GitHub Release
+        run: |
+          set -euo pipefail
+          if gh release view "v$VERSION" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release already exists. Use a new version to avoid mutating signed update assets.'
+            exit 1
+          fi
+          gh release create "v$VERSION" artifacts/installers/* --repo "$REPOSITORY" --target "$RELEASE_TARGET" --title "DbStudio $VERSION" --generate-notes --latest

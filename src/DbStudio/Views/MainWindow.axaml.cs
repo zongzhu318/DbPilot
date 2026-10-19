@@ -62,8 +62,8 @@ public sealed partial class MainWindow : Window
         QueryTabs.AddHandler(DragDrop.DragOverEvent,TabsDragOver);
         QueryTabs.AddHandler(DragDrop.DropEvent,TabsDrop);
         var heartbeat=new Avalonia.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(60)};
-        heartbeat.Tick+=async(_,_)=>await _vm.HeartbeatAsync();Closed+=(_,_)=>heartbeat.Stop();
-        Opened+=async (_,_)=>{await _vm.InitializeAsync();ApplySettings();heartbeat.Start();};
+        heartbeat.Tick+=async(_,_)=>await _vm.HeartbeatAsync();Closed+=(_,_)=>{heartbeat.Stop();_updates?.Dispose();};
+        Opened+=async (_,_)=>{await _vm.InitializeAsync();ApplySettings();heartbeat.Start();InitializeUpdates();};
         Closing+=async (_,e)=>{
             if(_closingSaved)return;e.Cancel=true;_vm.Cancel();
             if(_vm.Busy){_vm.Log("正在取消当前任务，请等待完成后再关闭窗口。");return;}

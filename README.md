@@ -111,3 +111,7 @@ dotnet publish src/DbStudio/DbStudio.csproj -c Release -r osx-arm64 --self-conta
 ```
 
 macOS 的应用包、签名、公证，以及 Windows 安装器、代码签名尚未制作。
+
+## 安装包与自动更新
+
+GitHub Actions 支持生成 macOS ARM64 / Intel DMG、Windows x64 EXE 安装包，并通过 Sparkle / WinSparkle 从 GitHub Releases 更新。签名密钥、Apple 公证配置与发布步骤见 [自动更新与发布](docs/自动更新与发布.md)。

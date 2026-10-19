@@ -52,3 +52,7 @@ id_ed25519
 ._*
 Thumbs.db
 Desktop.ini
+
+# Python release tooling cache
+__pycache__/
+*.pyc
