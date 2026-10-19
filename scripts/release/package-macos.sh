@@ -15,8 +15,10 @@ echo 'c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c  artifact
 tar -xf artifacts/sparkle.tar.xz -C artifacts/sparkle
 APP="$ROOT/artifacts/$RID/DbStudio.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
+PUBLISH_DIR="$(mktemp -d "$ROOT/artifacts/macos-publish.XXXXXX")"
 dotnet publish src/DbStudio/DbStudio.csproj -c Release -r "$RID" --self-contained true \
-  -p:Version="$VERSION" -p:DebugType=None -p:DebugSymbols=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$APP/Contents/MacOS"
+  -p:Version="$VERSION" -p:DebugType=None -p:DebugSymbols=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$PUBLISH_DIR"
+ditto "$PUBLISH_DIR" "$APP/Contents/MacOS"
 cp -R artifacts/sparkle/Sparkle.framework "$APP/Contents/Frameworks/"
 mkdir -p "$APP/Contents/Resources/ThirdParty"
 find artifacts/sparkle -maxdepth 1 -iname '*license*' -exec cp {} "$APP/Contents/Resources/ThirdParty/" \;

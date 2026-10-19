@@ -1,4 +1,4 @@
-<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="DbStudio.App" RequestedThemeVariant="Light">
+<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="DbStudio.App" Name="DbStudio" RequestedThemeVariant="Light">
   <Application.Resources>
     <ResourceDictionary>
       <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
