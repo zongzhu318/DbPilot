@@ -55,11 +55,8 @@ if [[ -n "${APPLE_ID:-}" ]]; then
   xcrun notarytool submit artifacts/notarize.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
   xcrun stapler staple "$APP"
 fi
-STAGE="$(mktemp -d "$ROOT/artifacts/dmg-stage.XXXXXX")"
-ditto "$APP" "$STAGE/DbStudio.app"
-ln -s /Applications "$STAGE/Applications"
 DMG="$ROOT/artifacts/installers/DbStudio-$VERSION-$RID.dmg"
-hdiutil create -volname DbStudio -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+python3 scripts/release/create-dmg.py --app "$APP" --output "$DMG"
 if [[ "$IDENTITY" != '-' ]]; then
   codesign --force --sign "$IDENTITY" --timestamp "$DMG"
 fi
