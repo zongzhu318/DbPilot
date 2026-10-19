@@ -64,6 +64,9 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Offline protocol and headless UI checks
         run: dotnet run --project tests/DbStudio.Checks/DbStudio.Checks.csproj -c Release
+      - name: Verify macOS bundle signing regression
+        if: runner.os == 'macOS'
+        run: python3 -m unittest discover -s scripts/release -p 'test_macos_signing.py'
       - name: Import Apple signing certificate
         if: runner.os == 'macOS'
         env:

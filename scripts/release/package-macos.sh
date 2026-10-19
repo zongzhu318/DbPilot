@@ -16,7 +16,7 @@ tar -xf artifacts/sparkle.tar.xz -C artifacts/sparkle
 APP="$ROOT/artifacts/$RID/DbStudio.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
 dotnet publish src/DbStudio/DbStudio.csproj -c Release -r "$RID" --self-contained true \
-  -p:Version="$VERSION" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$APP/Contents/MacOS"
+  -p:Version="$VERSION" -p:DebugType=None -p:DebugSymbols=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$APP/Contents/MacOS"
 cp -R artifacts/sparkle/Sparkle.framework "$APP/Contents/Frameworks/"
 mkdir -p "$APP/Contents/Resources/ThirdParty"
 find artifacts/sparkle -maxdepth 1 -iname '*license*' -exec cp {} "$APP/Contents/Resources/ThirdParty/" \;
@@ -44,23 +44,9 @@ subprocess.run(['iconutil','-c','icns',str(iconset),'-o',str(app/'Contents/Resou
 PY
 chmod +x "$APP/Contents/MacOS/DbStudio"
 IDENTITY="${APPLE_SIGNING_IDENTITY:--}"
-# Sign nested Mach-O binaries and bundles from the inside out (including Sparkle's XPC helpers).
-export IDENTITY ROOT
-python3 - <<'PY'
-import os,pathlib,subprocess
-app=pathlib.Path(os.environ['APP'])
-paths=[]
-for p in app.rglob('*'):
- if p.is_symlink(): continue
- if p.is_file() and 'Mach-O' in subprocess.run(['file','-b',str(p)],capture_output=True,text=True,check=True).stdout: paths.append(p)
- elif p.is_dir() and p.suffix in ('.app','.xpc','.framework'): paths.append(p)
-for p in sorted(set(paths),key=lambda p:len(p.parts),reverse=True)+[app]:
- args=['codesign','--force','--sign',os.environ['IDENTITY']]
- if os.environ['IDENTITY']!='-': args+=['--timestamp','--options','runtime']
- if p==app or p==app/'Contents/MacOS/DbStudio': args+=['--entitlements',os.environ['ROOT']+'/packaging/macos/entitlements.plist']
- subprocess.run(args+[str(p)],check=True)
-PY
-codesign --verify --deep --strict "$APP"
+# Sign nested helpers and libraries first; sign the enclosing app once, last.
+python3 scripts/release/sign-macos-bundle.py --app "$APP" --identity "$IDENTITY" \
+  --entitlements "$ROOT/packaging/macos/entitlements.plist"
 if [[ -n "${APPLE_ID:-}" ]]; then
   : "${APPLE_TEAM_ID:?}" "${APPLE_APP_PASSWORD:?}"
   ditto -c -k --keepParent "$APP" artifacts/notarize.zip

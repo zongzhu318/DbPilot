@@ -56,3 +56,6 @@ Desktop.ini
 # Python release tooling cache
 __pycache__/
 *.pyc
+
+# Sparkle signing key exported by generate_keys
+/sparkle-private-key
