@@ -59,7 +59,7 @@ public sealed partial class MainWindow
     {
         _objectSuggestions.Clear();_columnSuggestions.Clear();
         await RefreshDatabasePicker(true);
-        foreach(var node in _vm.Nodes.SelectMany(n=>n.Children).Where(n=>n.Profile.Id==profile.Id).ToArray()){
+        foreach(var node in _vm.Nodes.Where(n=>n.Profile.Id==profile.Id).ToArray()){
             node.Loaded=false;await _vm.ExpandAsync(node);
             if(database is not null&&node.Children.FirstOrDefault(n=>n.Database==database) is {} dbNode)await _vm.ExpandAsync(dbNode);
         }

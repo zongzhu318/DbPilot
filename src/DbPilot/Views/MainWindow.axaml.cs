@@ -30,7 +30,6 @@ public sealed partial class MainWindow : Window
     private bool _closingSaved;
     private bool _closingCheck;
     private Point _dragStart;
-    private ObjectNode? _dragNode;
     private QueryTab? _dragTab;
     private CompletionWindow? _completion;
     public MainWindow()
@@ -53,8 +52,6 @@ public sealed partial class MainWindow : Window
             if(_vm.Tab?.Result is {} result)for(int i=0;i<Results.Columns.Count;i++)Results.Columns[i].Header=result.Columns[i]+(Results.Columns[i]==e.Column?(_sortAscending?" ↑":" ↓"):"");
         };
         UpdateEditControls();
-        ObjectTree.AddHandler(DragDrop.DragOverEvent,TreeDragOver);
-        ObjectTree.AddHandler(DragDrop.DropEvent,TreeDrop);
         var expansion=TreeViewItem.IsExpandedProperty.Changed.AddClassHandler<TreeViewItem>(async(item,args)=>{
             if(item.IsExpanded&&item.DataContext is ObjectNode{Loaded:false} node&&item.GetVisualAncestors().Contains(ObjectTree)&&!_vm.Busy)await _vm.ExpandAsync(node);
         });
@@ -195,7 +192,7 @@ public sealed partial class MainWindow : Window
     {
         if(_vm.Busy || ObjectTree.SelectedItem is not ObjectNode node)return;
         if(node.Object is null&&!TryUseTreeContext(node))return;
-        if(!node.IsGroup&&node.Object is null&&node.Database is null&&_vm.IsClosed(node.Profile)){_vm.Connection=node.Profile;await _vm.ConnectAsync();}
+        if(node.Object is null&&node.Database is null&&_vm.IsClosed(node.Profile)){_vm.Connection=node.Profile;await _vm.ConnectAsync();}
         if(node.Database is {} database&&node.Object is null){try{if(!FlushGridEdits())return;_vm.Connection=node.Profile;if(_vm.CurrentProfile?.Database!=database)_vm.SelectDatabase(database);}catch(Exception ex){_vm.Log(ex.Message);return;}}
         if(node.Object is not null){CloseCatalog();await _vm.OpenTableAsync(node,Size);}else await _vm.ExpandAsync(node);
         await RefreshDatabasePicker();
@@ -354,26 +351,6 @@ public sealed partial class MainWindow : Window
             await _vm.Store.SaveSettingsAsync(_vm.Settings);ApplySettings();window.Close();
         }catch(Exception ex){status.Text=ex.Message;}};panel.Children.Add(save);panel.Children.Add(status);window.Content=new ScrollViewer{Content=panel};await window.ShowDialog(this);
     }
-    private async void ManageGroups(object? sender,RoutedEventArgs e)
-    {
-        var window=new Window{Title="连接分组",Width=460,Height=330,CanResize=false,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var panel=new StackPanel{Margin=new Thickness(24),Spacing=14};
-        var picker=new ComboBox{ItemsSource=_vm.Groups,HorizontalAlignment=HorizontalAlignment.Stretch};
-        var name=new TextBox{Watermark="输入分组名称"};picker.SelectionChanged+=(_,_)=>name.Text=picker.SelectedItem?.ToString();
-        panel.Children.Add(new TextBlock{Text="创建、重命名或删除分组",FontSize=19});panel.Children.Add(picker);panel.Children.Add(name);
-        panel.Children.Add(new TextBlock{Text="拖动连接到分组可调整归属。删除分组会保留连接。",FontSize=11,Opacity=0.6,TextWrapping=Avalonia.Media.TextWrapping.Wrap});
-        var row=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8};
-        foreach(var caption in new[]{"新建","重命名","删除"}){
-            var button=new Button{Content=caption};
-            button.Click+=async (_,_)=>{
-                var old=picker.SelectedItem?.ToString();var value=name.Text?.Trim();
-                if(caption!="删除" && string.IsNullOrWhiteSpace(value))return;
-                if(caption!="新建" && old is null)return;
-                await _vm.ChangeGroupAsync(caption=="新建"?null:old,caption=="删除"?null:value);
-            };row.Children.Add(button);
-        }
-        panel.Children.Add(row);window.Content=panel;await window.ShowDialog(this);
-    }
     private static T? ItemAt<T>(object? source) where T:class
     {
         if(source is not Control control)return null;
@@ -381,21 +358,12 @@ public sealed partial class MainWindow : Window
     }
     private void TreePointerPressed(object? sender,PointerPressedEventArgs e)
     {
-        _dragStart=e.GetPosition(ObjectTree);_dragNode=ItemAt<ObjectNode>(e.Source);
+        var node=ItemAt<ObjectNode>(e.Source);
         if(e.GetCurrentPoint(ObjectTree).Properties.IsRightButtonPressed){
-            if(_dragNode is null){ObjectTree.ContextMenu!.ItemsSource=Array.Empty<Control>();return;}
-            ObjectTree.SelectedItem=_dragNode;BuildTreeContextMenu(_dragNode);
+            if(node is null){ObjectTree.ContextMenu!.ItemsSource=Array.Empty<Control>();return;}
+            ObjectTree.SelectedItem=node;BuildTreeContextMenu(node);
         }
     }
-    private async void TreePointerMoved(object? sender,PointerEventArgs e)
-    {
-        if(_dragNode is not {IsGroup:false,Database:null} node || !e.GetCurrentPoint(ObjectTree).Properties.IsLeftButtonPressed || Distance(e.GetPosition(ObjectTree),_dragStart)<8)return;
-        _dragNode=null;var data=new DataObject();data.Set("DbPilot.Connection",node.Profile.Id.ToString());await DragDrop.DoDragDrop(e,data,DragDropEffects.Move);
-    }
-    private void TreeDragOver(object? sender,DragEventArgs e)
-    {e.DragEffects=e.Data.Contains("DbPilot.Connection") && ItemAt<ObjectNode>(e.Source)?.IsGroup==true ? DragDropEffects.Move : DragDropEffects.None;e.Handled=true;}
-    private async void TreeDrop(object? sender,DragEventArgs e)
-    {if(ItemAt<ObjectNode>(e.Source) is {IsGroup:true} group && Guid.TryParse(e.Data.Get("DbPilot.Connection")?.ToString(),out var id))await _vm.MoveConnectionAsync(id,group.Label);e.Handled=true;}
     private void TabsPointerPressed(object? sender,PointerPressedEventArgs e)
     {_dragStart=e.GetPosition(QueryTabs);_dragTab=ItemAt<QueryTab>(e.Source);if(_dragTab is not null&&e.GetCurrentPoint(QueryTabs).Properties.IsLeftButtonPressed)CloseCatalog();}
     private async void TabsPointerMoved(object? sender,PointerEventArgs e)
