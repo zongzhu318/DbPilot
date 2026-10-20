@@ -1,4 +1,4 @@
-name: 发布 macOS / Windows 版本
+name: 发布生产版本
 on:
   workflow_dispatch:
     inputs:
