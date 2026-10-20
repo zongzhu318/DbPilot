@@ -7,7 +7,6 @@ public sealed partial class MainWindow
 {
     private bool TryUseTreeContext(ObjectNode node)
     {
-        if(node.IsGroup)return true;
         if(_vm.Busy){_vm.Log("请先等待当前任务完成。");return false;}
         if(!FlushGridEdits())return false;
         var current=_vm.CurrentProfile;
@@ -22,11 +21,10 @@ public sealed partial class MainWindow
     private void BuildTreeContextMenu(ObjectNode node)
     {
         var items=new List<Control>();
-        void Add(string text,EventHandler<RoutedEventArgs> action,bool enabled=true){var item=new MenuItem{Header=text,IsEnabled=enabled};item.Click+=(sender,e)=>{if(node.IsGroup||TryUseTreeContext(node))action(sender,e);};items.Add(item);}
+        void Add(string text,EventHandler<RoutedEventArgs> action,bool enabled=true){var item=new MenuItem{Header=text,IsEnabled=enabled};item.Click+=(sender,e)=>{if(TryUseTreeContext(node))action(sender,e);};items.Add(item);}
         void Separator()=>items.Add(new Separator());
         bool idle=!_vm.Busy,open=_vm.IsOpen(node.Profile);
-        if(node.IsGroup){Add("新建连接",NewConnection,idle);Add("管理分组",ManageGroups,idle);}
-        else if(node.IsConnection){
+        if(node.IsConnection){
             Add(open?"关闭连接":"打开连接",open?DisconnectDatabase:ConnectDatabase,idle);
             Separator();Add("编辑连接",EditConnection,idle);Add("复制连接",CopyConnection,idle);Add("删除连接",DeleteConnection,idle);
             Separator();Add("新建数据库",CreateDatabase,idle&&open);

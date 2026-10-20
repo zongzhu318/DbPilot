@@ -10,8 +10,8 @@ public static class SqlHighlighting
     {
         var words="SELECT FROM WHERE ORDER BY GROUP HAVING JOIN LEFT RIGHT INNER OUTER ON AS AND OR NOT NULL IS INSERT INTO VALUES UPDATE SET DELETE CREATE TABLE INDEX LIMIT OFFSET FETCH NEXT ROWS ONLY DISTINCT UNION ALL DESC ASC CASE WHEN THEN ELSE END DROP ALTER PRIMARY KEY UNIQUE DEFAULT DATABASE SCHEMA EXPLAIN BEGIN COMMIT ROLLBACK TRUE FALSE IN EXISTS BETWEEN LIKE WITH OVER PARTITION COUNT SUM AVG MAX MIN";
         words+=kind switch{DatabaseKind.TDengine=>" STABLE TAGS INTERVAL SLIDING FILL SESSION STATE_WINDOW TBNAME TIMETRUNCATE TTL KEEP VGROUPS",DatabaseKind.SqlServer=>" TOP GO NVARCHAR IDENTITY MERGE OUTPUT",DatabaseKind.PostgreSQL=>" RETURNING SERIAL JSONB ILIKE CONFLICT",_=>" AUTO_INCREMENT ENGINE SHOW DESCRIBE REPLACE"};
-        var keyword=dark?"#82B9F5":"#285EA7";var literal=dark?"#E3BE8B":"#956029";
-        var comment=dark?"#83B8A9":"#56836D";var number=dark?"#C5A0E6":"#8753A4";
+        var keyword=dark?"#FF79C6":"#0000FF";var literal=dark?"#F1FA8C":"#A31515";
+        var comment=dark?"#6272A4":"#008000";var number=dark?"#BD93F9":"#098658";
         var definition=$$"""
         <SyntaxDefinition name="SQL" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
           <Color name="Keyword" foreground="{{keyword}}" fontWeight="bold" />

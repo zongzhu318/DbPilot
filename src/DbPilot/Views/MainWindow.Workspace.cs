@@ -14,7 +14,7 @@ public sealed partial class MainWindow
         if(_vm.Busy)return;
         var window=new Window{Title="加密配置备份",Width=600,SizeToContent=SizeToContent.Height,WindowStartupLocation=WindowStartupLocation.CenterOwner};
         var panel=new StackPanel{Spacing=15,Margin=new(22)};
-        panel.Children.Add(new TextBlock{Text="备份包含连接密码、SSH 凭据、分组和自定义 SQL 模板。导入会追加连接，保留现有配置。",TextWrapping=Avalonia.Media.TextWrapping.Wrap});
+        panel.Children.Add(new TextBlock{Text="备份包含连接密码、SSH 凭据和自定义 SQL 模板。导入会追加连接，保留现有配置。",TextWrapping=Avalonia.Media.TextWrapping.Wrap});
         var password=new TextBox{PasswordChar='●',Watermark="备份口令（至少 10 个字符）"};panel.Children.Add(password);var status=new TextBlock{TextWrapping=Avalonia.Media.TextWrapping.Wrap};
         var row=new StackPanel{Orientation=Orientation.Horizontal,Spacing=10};var export=new Button{Content="导出加密备份"};var import=new Button{Content="导入备份"};
         bool busy=false;

@@ -66,19 +66,15 @@ public sealed partial class MainViewModel : Observable
     public void RebuildTree(string filter = "")
     {
         Nodes.Clear();
-        foreach(var group in Groups.Union(Connections.Select(p=>p.Group))) {
-            var members=Connections.Where(p=>p.Group==group).ToArray();
-            var root = new ObjectNode { Label = group, Profile = members.FirstOrDefault() ?? new(), Loaded = true, IsGroup=true };
-            foreach(var p in members.Where(p=>string.IsNullOrWhiteSpace(filter) || p.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))) {
-                var node = new ObjectNode { Label = ConnectionNodeLabel(p), Profile = p, IsConnection=true, IconColor=ConnectionIconColor(p) };
-                node.Children.Add(new ObjectNode { Label="双击加载数据库",Profile=p,Loaded=true }); root.Children.Add(node);
-            }
-            Nodes.Add(root);
+        foreach(var p in Connections.Where(p=>string.IsNullOrWhiteSpace(filter) || p.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))) {
+            var node = new ObjectNode { Label = ConnectionNodeLabel(p), Profile = p, IsConnection=true, IconColor=ConnectionIconColor(p) };
+            node.Children.Add(new ObjectNode { Label="双击加载数据库",Profile=p,Loaded=true });
+            Nodes.Add(node);
         }
     }
+
     public async Task ExpandAsync(ObjectNode node) => await Guard(async ct =>
     {
-        if(node.IsGroup) return;
         EnsureConnected(node.Profile);
         Connection = node.Profile;
         if (node.Loaded) return;
@@ -229,7 +225,6 @@ public sealed partial class MainViewModel : Observable
         await Guard(async ct=> {
             var next=Connections.Where(p=>p.Id!=replace).Append(profile).ToList();
             await Store.SaveConnectionsAsync(next); Connections.Clear(); foreach(var p in next) Connections.Add(p);
-            if(!Groups.Contains(profile.Group)) { Groups.Add(profile.Group); await Store.SaveGroupsAsync(Groups); }
             Connection=profile; RebuildTree(); Log("连接配置已加密保存。");
         });
     }
@@ -237,21 +232,4 @@ public sealed partial class MainViewModel : Observable
         var next=Connections.Where(p=>p.Id!=profile.Id).ToList(); await Store.SaveConnectionsAsync(next);
         Connections.Remove(profile); Connection=null; RebuildTree(); Log("连接已删除。");
     });
-    public async Task ChangeGroupAsync(string? oldName,string? newName) => await Guard(async ct=> {
-        if(string.IsNullOrWhiteSpace(newName) && oldName is null) return;
-        if(newName is not null && Groups.Contains(newName) && oldName!=newName) throw new InvalidOperationException("分组名称已存在。");
-        var profiles=Connections.Select(p=>CloneForDatabase(p,null)).ToList();
-        foreach(var p in profiles.Where(p=>p.Group==oldName)) p.Group=newName??"未分组";
-        await Store.SaveConnectionsAsync(profiles);
-        if(oldName is not null) Groups.Remove(oldName);
-        if(newName is not null && !Groups.Contains(newName)) Groups.Add(newName);
-        if(profiles.Any(p=>p.Group=="未分组") && !Groups.Contains("未分组")) Groups.Add("未分组");
-        await Store.SaveGroupsAsync(Groups); Connections.Clear();foreach(var p in profiles)Connections.Add(p);Connection=null;RebuildTree();
-        Log(newName is null ? "分组已删除，连接已移至未分组。" : "分组已保存。");
-    });
-    public async Task MoveConnectionAsync(Guid id,string group)
-    {
-        var profile=Connections.FirstOrDefault(p=>p.Id==id);if(profile is null)return;
-        var clone=CloneForDatabase(profile,null);clone.Group=group;await SaveProfileAsync(clone,id);
-    }
 }

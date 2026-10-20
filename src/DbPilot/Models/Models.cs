@@ -72,7 +72,6 @@ public sealed class QueryTab : Observable
 }
 public sealed class ObjectNode : Observable
 {
-    public bool IsGroup { get; init; }
     public bool IsConnection { get; init; }
     public string DatabaseIcon => Profile?.Kind switch { DatabaseKind.MySQL=>"MY", DatabaseKind.PostgreSQL=>"PG", DatabaseKind.SqlServer=>"SQL", DatabaseKind.TDengine=>"TD", _=>"DB" };
     private string _iconColor="#858B93";

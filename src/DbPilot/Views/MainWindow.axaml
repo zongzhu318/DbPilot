@@ -25,10 +25,11 @@
    <Grid ColumnDefinitions="Auto,*,Auto">
     <StackPanel Orientation="Horizontal" Spacing="6"><Image Source="/Assets/logo.png" Width="22" Height="22"/><TextBlock Text="DbPilot" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
      <Menu Background="Transparent">
-      <MenuItem Header="连接"><MenuItem Header="新建连接" Click="NewConnection"/><MenuItem Header="编辑连接" Click="EditConnection"/><MenuItem x:Name="OpenConnectionButton" Header="打开连接" Click="ConnectDatabase"/><MenuItem x:Name="CloseConnectionButton" Header="关闭连接" Click="DisconnectDatabase"/><Separator/><MenuItem Header="复制连接" Click="CopyConnection"/><MenuItem Header="删除连接" Click="DeleteConnection"/><Separator/><MenuItem Header="新建数据库" Click="CreateDatabase"/><MenuItem Header="新建表" Click="CreateTable"/><MenuItem Header="管理分组" Click="ManageGroups"/></MenuItem>
+      <MenuItem Header="连接"><MenuItem Header="新建连接" Click="NewConnection"/><MenuItem Header="编辑连接" Click="EditConnection"/><MenuItem x:Name="OpenConnectionButton" Header="打开连接" Click="ConnectDatabase"/><MenuItem x:Name="CloseConnectionButton" Header="关闭连接" Click="DisconnectDatabase"/><Separator/><MenuItem Header="复制连接" Click="CopyConnection"/><MenuItem Header="删除连接" Click="DeleteConnection"/><Separator/><MenuItem Header="新建数据库" Click="CreateDatabase"/><MenuItem Header="新建表" Click="CreateTable"/></MenuItem>
       <MenuItem Header="文件"><MenuItem Header="打开脚本" Click="OpenScript"/><MenuItem Header="保存脚本（⌘/Ctrl+S）" Click="SaveScript"/><Separator/><MenuItem Header="查询历史" Click="ShowHistory"/><MenuItem Header="SQL 模板" Click="ShowTemplates"/><MenuItem Header="配置备份" Click="WorkspaceBackup"/></MenuItem>
-      <MenuItem Header="工具"><MenuItem Header="执行计划" Click="ExplainSql"/><MenuItem Header="图表" Click="OpenChart"/><MenuItem Header="数据库工具" Click="OpenDatabaseTools"/><Separator/><MenuItem Header="检查更新" Click="CheckForUpdates"/><MenuItem Header="设置" Click="ShowSettings"/><MenuItem Header="切换主题" Click="ToggleTheme"/></MenuItem>
+      <MenuItem Header="工具"><MenuItem Header="执行计划" Click="ExplainSql"/><MenuItem Header="图表" Click="OpenChart"/><MenuItem Header="数据库工具" Click="OpenDatabaseTools"/><Separator/><MenuItem Header="检查更新" Click="CheckForUpdates"/><MenuItem Header="设置" Click="ShowSettings"/></MenuItem>
       <MenuItem Header="视图"><MenuItem Header="显示 / 隐藏侧栏" Click="ToggleSidebar"/><MenuItem Header="展开 / 收起 SQL 编辑器" Click="ToggleEditor"/><MenuItem Header="显示 / 隐藏日志" Click="ToggleLogs"/><MenuItem Header="专注模式（⌘/Ctrl+Shift+F）" Click="ToggleFocusMode"/></MenuItem>
+      <MenuItem Header="切换主题" Click="ToggleTheme"/>
      </Menu>
     </StackPanel>
     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"><Button Content="侧栏" Click="ToggleSidebar" ToolTip.Tip="显示或隐藏连接侧栏"/><Button x:Name="EditorToggleButton" Content="收起 SQL" Click="ToggleEditor"/><Button x:Name="FocusModeButton" Content="专注模式" Click="ToggleFocusMode" ToolTip.Tip="隐藏侧栏、SQL 编辑器与日志，将空间留给表数据"/></StackPanel>
@@ -45,10 +46,10 @@
    </StackPanel>
   </Border>
   <Grid Grid.Row="2" ColumnDefinitions="220,4,*" x:Name="WorkspaceGrid">
-   <Grid x:Name="SidebarPanel" RowDefinitions="Auto,Auto,*,Auto" Margin="8,6,6,4">
+   <Grid x:Name="SidebarPanel" Background="{DynamicResource SidebarBackground}" RowDefinitions="Auto,Auto,*,Auto" Margin="8,6,6,4">
     <Grid ColumnDefinitions="*,Auto"><TextBlock Text="连接与数据库" FontWeight="SemiBold" VerticalAlignment="Center"/><Button Grid.Column="1" Content="刷新" Click="RefreshTree" Padding="7,4"/></Grid>
     <TextBox Grid.Row="1" x:Name="ObjectFilter" Watermark="搜索连接 / 已加载对象…" Margin="0,6,0,5" TextChanged="FilterObjects"/>
-    <TreeView Grid.Row="2" x:Name="ObjectTree" ItemsSource="{Binding Nodes}" DoubleTapped="OpenNode" DragDrop.AllowDrop="True" PointerPressed="TreePointerPressed" PointerMoved="TreePointerMoved">
+    <TreeView Grid.Row="2" x:Name="ObjectTree" ItemsSource="{Binding Nodes}" DoubleTapped="OpenNode" PointerPressed="TreePointerPressed">
      <TreeView.Styles><Style Selector="TreeViewItem"><Setter Property="IsVisible" Value="{Binding Visible}"/></Style></TreeView.Styles>
      <TreeView.ItemTemplate><TreeDataTemplate DataType="m:ObjectNode" ItemsSource="{Binding Children}"><StackPanel Orientation="Horizontal" Spacing="7" Margin="2,2"><Border IsVisible="{Binding IsConnection}" Background="{Binding IconColor}" CornerRadius="4" Width="28" Height="22"><TextBlock Text="{Binding DatabaseIcon}" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="{Binding Label}" VerticalAlignment="Center"/></StackPanel></TreeDataTemplate></TreeView.ItemTemplate>
      <TreeView.ContextMenu><ContextMenu/></TreeView.ContextMenu>
@@ -121,6 +122,6 @@
     </Expander>
    </Grid>
   </Grid>
-  <Border Grid.Row="3" Background="{DynamicResource StatusBackground}" Padding="10,3"><Grid ColumnDefinitions="*,Auto"><TextBlock Foreground="{DynamicResource WorkspaceText}" Text="{Binding Status}" FontSize="11" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Foreground="{DynamicResource MutedText}" Opacity="0.8" Text="DbPilot 0.3 · 数据库工具" FontSize="11"/></Grid></Border>
+  <Border Grid.Row="3" Background="{DynamicResource StatusBackground}" Padding="10,3"><Grid ColumnDefinitions="*,Auto"><TextBlock Foreground="{DynamicResource StatusText}" Text="{Binding Status}" FontSize="11" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Foreground="{DynamicResource StatusText}" Opacity="0.8" Text="DbPilot 0.3 · 数据库工具" FontSize="11"/></Grid></Border>
  </Grid>
 </Window>

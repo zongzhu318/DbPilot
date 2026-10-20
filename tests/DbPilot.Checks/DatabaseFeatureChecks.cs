@@ -153,8 +153,10 @@ internal static class DatabaseFeatureChecks
         bool blocked=false;try{vm.SelectDatabase("warehouse");}catch(InvalidOperationException){blocked=true;}check(blocked&&first.Connection?.Database=="sales"&&first.Edits.PendingCount==1,"database switching preserves and protects staged edits");
         blocked=false;try{vm.EnsureObjectHasNoDrafts(profile,first.Table);}catch(InvalidOperationException){blocked=true;}check(blocked,"table DDL refuses an object with unsaved row edits");first.Edits.Revert();
         vm.Disconnect();int before=calls;blocked=false;try{await vm.ReadDatabasesAsync(profile,default);}catch(InvalidOperationException){blocked=true;}check(blocked&&calls==before&&!await vm.ExecuteDdlAsync(profile,"CREATE TABLE t(id int)"),"closed connection blocks metadata and DDL before provider access");
-        await vm.ConnectAsync();vm.RebuildTree();var retainedGroup=vm.Nodes[0];var retainedConnection=retainedGroup.Children[0];
-        vm.Disconnect();check(ReferenceEquals(vm.Nodes[0],retainedGroup)&&ReferenceEquals(vm.Nodes[0].Children[0],retainedConnection)&&retainedConnection.Label.Contains("已关闭"),"disconnect updates only its node without rebuilding other tree branches");
+        await vm.ConnectAsync();vm.RebuildTree();var retainedConnection=vm.Nodes[0];
+        check(vm.Nodes.Count==vm.Connections.Count && vm.Nodes.All(n=>n.IsConnection),"connections appear directly at the tree root regardless of legacy group");
+        vm.RebuildTree("no-matching-connection");check(vm.Nodes.Count==0,"connection filtering leaves no empty group nodes");vm.RebuildTree();retainedConnection=vm.Nodes[0];
+        vm.Disconnect();check(ReferenceEquals(vm.Nodes[0],retainedConnection)&&retainedConnection.Label.Contains("已关闭"),"disconnect updates only its node without rebuilding other tree branches");
         await vm.ConnectAsync();check(vm.IsOpen(profile)&&(await vm.ReadDatabasesAsync(profile,default)).Contains("sales"),"open connection restores metadata access");
         var tabsBeforeOpen=vm.Tabs.Count;
         await vm.OpenTableAsync(new(){Profile=profile,Database="sales",Object=first.Table},100);
