@@ -200,7 +200,7 @@ jobs:
       - name: 运行发布脚本单元测试
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
   build:
-    name: 编译打包
+    name: 多平台编译打包
     needs: [prepare, test]
     timeout-minutes: 45
     strategy:
@@ -222,7 +222,7 @@ jobs:
       REPOSITORY: ${{ github.repository }}
       PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
     steps:
-      - name: 检出待发布提交
+      - name: 检出待发布代码
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.sha }}
@@ -260,7 +260,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/release/package-windows.ps1
-      - name: 上传安装包
+      - name: 上传编译产物
         uses: actions/upload-artifact@v7
         with:
           name: installer-${{ matrix.rid }}
@@ -291,12 +291,12 @@ jobs:
       SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
       SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
     steps:
-      - name: 检出待发布提交
+      - name: 检出待发布代码
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.sha }}
           fetch-depth: 0
-      - name: 下载安装包
+      - name: 下载编译产物
         uses: actions/download-artifact@v8
         with:
           pattern: installer-*
@@ -406,7 +406,7 @@ jobs:
           } > "$notes_file"
           echo "--- 更新说明预览 ---"
           cat "$notes_file"
-      - name: 签名安装包并生成更新源
+      - name: 生成并校验更新源
         run: |
           set -euo pipefail
           test -n "$SPARKLE_PRIVATE_KEY" || { echo 'Set SPARKLE_PRIVATE_KEY secret'; exit 1; }
