@@ -3,35 +3,43 @@
     <ResourceDictionary>
       <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
       <ResourceDictionary.ThemeDictionaries>
+        <!-- Visual Studio Light -->
         <ResourceDictionary x:Key="Light">
-          <SolidColorBrush x:Key="WorkspaceBackground">#F4F7FB</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentText">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusText">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBackground">#EEEEF2</SolidColorBrush>
           <SolidColorBrush x:Key="PanelBackground">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="SubtleBackground">#EDF2F7</SolidColorBrush>
-          <SolidColorBrush x:Key="ControlHoverBackground">#E3EDEf</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceBorder">#D8E2EB</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceText">#263648</SolidColorBrush>
-          <SolidColorBrush x:Key="MutedText">#61758A</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentBrush">#0F766E</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentHoverBrush">#115E59</SolidColorBrush>
-          <SolidColorBrush x:Key="SelectionBackground">#D9F0ED</SolidColorBrush>
-          <SolidColorBrush x:Key="SelectionText">#115E59</SolidColorBrush>
-          <SolidColorBrush x:Key="DangerBrush">#BE3546</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusBackground">#E5EFEE</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBackground">#F5F5F5</SolidColorBrush>
+          <SolidColorBrush x:Key="SubtleBackground">#F5F5F5</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlHoverBackground">#C9DEF5</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBorder">#CCCEDB</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceText">#1E1E1E</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedText">#6D6D6D</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentBrush">#007ACC</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentHoverBrush">#005A9E</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionBackground">#C9DEF5</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionText">#1E1E1E</SolidColorBrush>
+          <SolidColorBrush x:Key="DangerBrush">#B01011</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBackground">#007ACC</SolidColorBrush>
         </ResourceDictionary>
+        <!-- Dracula -->
         <ResourceDictionary x:Key="Dark">
-          <SolidColorBrush x:Key="WorkspaceBackground">#141D29</SolidColorBrush>
-          <SolidColorBrush x:Key="PanelBackground">#1C2837</SolidColorBrush>
-          <SolidColorBrush x:Key="SubtleBackground">#243345</SolidColorBrush>
-          <SolidColorBrush x:Key="ControlHoverBackground">#304556</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceBorder">#34485C</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceText">#E2EAF3</SolidColorBrush>
-          <SolidColorBrush x:Key="MutedText">#9BB0C5</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentBrush">#16877F</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentHoverBrush">#1B9A90</SolidColorBrush>
-          <SolidColorBrush x:Key="SelectionBackground">#244D50</SolidColorBrush>
-          <SolidColorBrush x:Key="SelectionText">#B5F1E9</SolidColorBrush>
-          <SolidColorBrush x:Key="DangerBrush">#FFA5AD</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusBackground">#1B323C</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentText">#282A36</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusText">#F8F8F2</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBackground">#282A36</SolidColorBrush>
+          <SolidColorBrush x:Key="PanelBackground">#282A36</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBackground">#21222C</SolidColorBrush>
+          <SolidColorBrush x:Key="SubtleBackground">#343746</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlHoverBackground">#44475A</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBorder">#44475A</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceText">#F8F8F2</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedText">#A9B4D0</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentBrush">#BD93F9</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentHoverBrush">#CAA9FA</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionBackground">#44475A</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionText">#F8F8F2</SolidColorBrush>
+          <SolidColorBrush x:Key="DangerBrush">#FF5555</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBackground">#21222C</SolidColorBrush>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
@@ -39,8 +47,8 @@
   <Application.Styles>
     <FluentTheme>
       <FluentTheme.Palettes>
-        <ColorPaletteResources x:Key="Light" Accent="#0F766E" />
-        <ColorPaletteResources x:Key="Dark" Accent="#39BBAE" />
+        <ColorPaletteResources x:Key="Light" Accent="#007ACC" />
+        <ColorPaletteResources x:Key="Dark" Accent="#BD93F9" />
       </FluentTheme.Palettes>
     </FluentTheme>
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
@@ -48,8 +56,8 @@
     <Style Selector="Window"><Setter Property="FontSize" Value="13"/><Setter Property="Background" Value="{DynamicResource WorkspaceBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/></Style>
     <Style Selector="Button"><Setter Property="CornerRadius" Value="5"/><Setter Property="Padding" Value="12,7"/><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
     <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/></Style>
-    <Style Selector="Button.primary"><Setter Property="Background" Value="{DynamicResource AccentBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="White"/></Style>
-    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/><Setter Property="TextElement.Foreground" Value="White"/></Style>
+    <Style Selector="Button.primary"><Setter Property="Background" Value="{DynamicResource AccentBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="{DynamicResource AccentText}"/></Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/><Setter Property="TextElement.Foreground" Value="{DynamicResource AccentText}"/></Style>
     <Style Selector="TextBox"><Setter Property="CornerRadius" Value="5"/><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
     <Style Selector="ComboBox"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="CornerRadius" Value="5"/></Style>
     <Style Selector="DataGrid"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="VerticalGridLinesBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
@@ -57,6 +65,9 @@
     <Style Selector="DataGridRow:selected"><Setter Property="Background" Value="{DynamicResource SelectionBackground}"/><Setter Property="Foreground" Value="{DynamicResource SelectionText}"/></Style>
     <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource SelectionBackground}"/><Setter Property="Opacity" Value="1"/></Style>
     <Style Selector="DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource SelectionBackground}"/><Setter Property="Opacity" Value="1"/></Style>
+    <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource SelectionBackground}"/></Style>
+    <Style Selector="TreeViewItem:selected"><Setter Property="Foreground" Value="{DynamicResource SelectionText}"/></Style>
+    <Style Selector="ContextMenu"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
     <Style Selector="MenuItem.danger"><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></Style>
   </Application.Styles>
 </Application>

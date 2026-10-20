@@ -88,8 +88,8 @@ public sealed partial class MainWindow : Window
         _expandedEditorHeight=EditorWorkspaceGrid.RowDefinitions[2].Height;_expandedResultsHeight=EditorWorkspaceGrid.RowDefinitions[4].Height;
         if(!EditorPane.IsVisible){EditorWorkspaceGrid.RowDefinitions[2].Height=new GridLength(0);EditorWorkspaceGrid.RowDefinitions[3].Height=new GridLength(0);}
         try{KeyGesture.Parse(_vm.Settings.ExecuteGesture);KeyGesture.Parse(_vm.Settings.CompletionGesture);}catch{_vm.Settings.ExecuteGesture="Ctrl+Enter";_vm.Settings.CompletionGesture="Ctrl+Space";}
-        SqlEditor.Foreground=Avalonia.Media.Brush.Parse(_vm.Settings.Dark?"#E2EAF3":"#263648");
-        SqlEditor.LineNumbersForeground=Avalonia.Media.Brush.Parse(_vm.Settings.Dark?"#839AAF":"#8A9AA9");
+        SqlEditor.Foreground=Avalonia.Media.Brush.Parse(_vm.Settings.Dark?"#F8F8F2":"#1E1E1E");
+        SqlEditor.LineNumbersForeground=Avalonia.Media.Brush.Parse(_vm.Settings.Dark?"#6272A4":"#2B91AF");
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(_vm.Connection?.Kind??DatabaseKind.MySQL,_vm.Settings.Dark);
     }
     private int Size => int.Parse((PageSize.SelectedItem as ComboBoxItem)?.Content?.ToString()??"100");
