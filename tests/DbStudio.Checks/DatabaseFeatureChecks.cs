@@ -67,7 +67,7 @@ internal static class DatabaseFeatureChecks
         check(sqlEditor.Text=="SELECT 21;\nselect 22;"&&sqlEditor.SelectedText=="SELECT 21;","context formatting changes only selected SQL and retains selection");
         sqlEditor.Document.UndoStack.Undo();
         check(sqlEditor.Text=="select 21;\nselect 22;","selected SQL formatting can be undone");
-        sqlEditor.Select(0,"select 21;".Length);sqlEditor.ContextMenu.Close();
+        sqlEditor.Select(0,"select 21;".Length);sqlEditor.ContextMenu?.Close();
         capturedSql.Clear();executeMenu.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         deadline=DateTime.UtcNow.AddSeconds(5);
         while(vm.Busy&&DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
