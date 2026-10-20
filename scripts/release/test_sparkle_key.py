@@ -20,7 +20,8 @@ class SparkleKeyTests(unittest.TestCase):
                                            (seed, bytes(32), False), (bytes(64), public, False)]:
             with self.subTest(length=len(private), success=success):
                 private_text = base64.b64encode(private).decode()
-                env = dict(os.environ, PRIVATE_KEY=private_text, PUBLIC_KEY=base64.b64encode(expected).decode())
+                env = dict(os.environ, SPARKLE_PRIVATE_KEY=private_text,
+                           SPARKLE_PUBLIC_KEY=base64.b64encode(expected).decode())
                 result = subprocess.run(['swift', '-module-cache-path', cache, str(script)], env=env,
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode == 0, success, result.stderr)

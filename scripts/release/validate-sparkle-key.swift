@@ -5,7 +5,7 @@ import CryptoKit
 // 32-byte Ed25519 seed, or legacy 64-byte expanded private key + 32-byte public key.
 func validate() -> Bool {
     let env = ProcessInfo.processInfo.environment
-    guard let privateText = env["PRIVATE_KEY"], let publicText = env["PUBLIC_KEY"],
+    guard let privateText = env["SPARKLE_PRIVATE_KEY"], let publicText = env["SPARKLE_PUBLIC_KEY"],
           let secret = Data(base64Encoded: privateText.trimmingCharacters(in: .whitespacesAndNewlines)),
           let expected = Data(base64Encoded: publicText.trimmingCharacters(in: .whitespacesAndNewlines)),
           expected.count == 32 else { return false }
