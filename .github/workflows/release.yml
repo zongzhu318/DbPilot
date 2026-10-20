@@ -1,9 +1,9 @@
-name: Release installers and Sparkle updates
+name: 发布安装包与 Sparkle 更新
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (for example 0.3.1; no v prefix)'
+        description: '发布版本号（例如 0.3.1，不带 v 前缀）'
         required: true
         type: string
   push:
@@ -19,10 +19,10 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Test update feed generation
+      - uses: actions/checkout@v7
+      - name: 测试更新源生成
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
-      - name: Validate version and public update key
+      - name: 校验版本号与公开更新密钥
         id: version
         env:
           INPUT_VERSION: ${{ inputs.version }}
@@ -58,16 +58,16 @@ jobs:
       REPOSITORY: ${{ github.repository }}
       PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
-      - name: Offline protocol and headless UI checks
+      - name: 离线协议与无界面 UI 检查
         run: dotnet run --project tests/DbStudio.Checks/DbStudio.Checks.csproj -c Release
-      - name: Verify macOS bundle signing regression
+      - name: 验证 macOS 打包签名回归
         if: runner.os == 'macOS'
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
-      - name: Import Apple signing certificate
+      - name: 导入 Apple 签名证书
         if: runner.os == 'macOS'
         env:
           CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
@@ -84,7 +84,7 @@ jobs:
             security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/release.keychain-db"
             security list-keychains -d user -s "$RUNNER_TEMP/release.keychain-db" login.keychain-db
           fi
-      - name: Build macOS DMG with Sparkle
+      - name: 构建 macOS DMG（含 Sparkle）
         if: runner.os == 'macOS'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -92,16 +92,16 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: bash scripts/release/package-macos.sh
-      - name: Build Windows EXE installer with WinSparkle
+      - name: 构建 Windows EXE 安装包（含 WinSparkle）
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/release/package-windows.ps1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: installer-${{ matrix.rid }}
           path: artifacts/installers/*
           if-no-files-found: error
-      - name: Remove temporary Apple keychain
+      - name: 清理临时 Apple 钥匙串
         if: always() && runner.os == 'macOS'
         shell: bash
         run: |
@@ -120,13 +120,13 @@ jobs:
       REPOSITORY: ${{ github.repository }}
       RELEASE_TARGET: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: installer-*
           merge-multiple: true
           path: artifacts/installers
-      - name: Sign installers and generate appcasts
+      - name: 签名安装包并生成更新源
         env:
           PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
@@ -143,7 +143,7 @@ jobs:
           trap 'rm -f "$KEY_FILE"' EXIT
           printf '%s' "$PRIVATE_KEY" > "$KEY_FILE"
           python3 scripts/release/generate-appcasts.py --directory artifacts/installers --repository "$REPOSITORY" --version "$VERSION" --signer artifacts/sparkle/bin/sign_update --key-file "$KEY_FILE"
-      - name: Publish GitHub Release
+      - name: 发布 GitHub Release
         run: |
           set -euo pipefail
           if gh release view "v$VERSION" --repo "$REPOSITORY" >/dev/null 2>&1; then
