@@ -178,9 +178,30 @@ jobs:
           fi
           SHA="$(git rev-parse HEAD)"
           echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+  test:
+    name: 单元测试
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: 检出待发布代码
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - name: 配置 .NET 环境
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+      - name: 离线协议与无界面 UI 检查
+        run: dotnet run --project tests/DbPilot.Checks/DbPilot.Checks.csproj -c Release
+      - name: 运行发布脚本单元测试
+        run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
   build:
     name: 编译打包
-    needs: prepare
+    needs: [prepare, test]
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -206,14 +227,10 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-dotnet@v6
+      - name: 配置 .NET 环境
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
-      - name: 离线协议与无界面 UI 检查
-        run: dotnet run --project tests/DbPilot.Checks/DbPilot.Checks.csproj -c Release
-      - name: 验证 macOS 打包签名回归
-        if: runner.os == 'macOS'
-        run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
       - name: 导入 Apple 签名证书
         if: runner.os == 'macOS'
         env:
@@ -429,7 +446,7 @@ jobs:
           <!doctype html><meta charset="utf-8"><title>DbPilot 更新</title><a href="https://github.com/zongzhu318/DbPilot/releases/latest">下载 DbPilot for macOS / Windows</a>
           HTML
       - name: 上传 Pages 部署产物
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        uses: actions/upload-pages-artifact@v5
         with:
           path: .release-work/pages
   pages:
@@ -446,7 +463,7 @@ jobs:
     steps:
       - name: 部署更新源
         id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        uses: actions/deploy-pages@v5
       - name: 校验线上更新源与 Release 一致
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
