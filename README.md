@@ -1,4 +1,4 @@
-# DbStudio
+# DbPilot
 
 基于 Avalonia UI、AvaloniaEdit 和 .NET 8 的跨平台数据库桌面工作台。按《多数据库桌面管理工具需求文档》实现，以 Navicat 的连接树、查询页、结果表格作为交互参考。
 
@@ -6,13 +6,13 @@
 
 ## 启动
 
-Windows 已打包程序：`artifacts/win-x64/DbStudio.exe`，双击即可启动，无需单独安装 .NET。
+Windows 已打包程序：`artifacts/win-x64/DbPilot.exe`，双击即可启动，无需单独安装 .NET。
 
 从源码运行：双击根目录 `run.cmd`。脚本优先使用项目 `.tools/dotnet` 中的 SDK，也可使用系统 .NET 8 SDK。
 
 ```powershell
-dotnet run --project src/DbStudio/DbStudio.csproj
-dotnet run --project tests/DbStudio.Checks/DbStudio.Checks.csproj
+dotnet run --project src/DbPilot/DbPilot.csproj
+dotnet run --project tests/DbPilot.Checks/DbPilot.Checks.csproj
 ```
 
 完整构建和测试：`powershell -ExecutionPolicy Bypass -File build.ps1`。增加 `-Publish` 可生成 Windows x64 自包含单文件程序。开发依赖通过 NuGet 还原，需要网络。
@@ -63,7 +63,7 @@ PostgreSQL 每个数据库使用独立连接上下文；SQL Server 在元数据�
 
 ## 本地数据
 
-默认保存于当前用户的本地应用数据目录 `DbStudio`（Windows 为 `%LOCALAPPDATA%\DbStudio`）。可设置环境变量 `DBSTUDIO_DATA_DIR` 指定独立目录。
+默认保存于当前用户的本地应用数据目录 `DbPilot`（Windows 为 `%LOCALAPPDATA%\DbPilot`）。可设置环境变量 `DBPILOT_DATA_DIR` 指定独立目录。
 
 - `connections.json`：连接配置，数据库密码、SSH 密码和私钥口令经 AES-256-GCM 加密。
 - `history.json`：查询历史，SQL 文本经 AES-256-GCM 加密。
@@ -87,13 +87,13 @@ PostgreSQL 每个数据库使用独立连接上下文；SQL Server 在元数据�
 ## 项目结构
 
 ```text
-src/DbStudio/
+src/DbPilot/
   Models/       连接、对象、查询页、设置模型
   Providers/    统一接口、Provider 工厂、关系型驱动与 TDengine REST
   Services/     加密持久化、SQL 高亮 / 格式化 / 补全、结果适配、编辑会话与参数化命令生成
   ViewModels/   异步任务、查询执行、导航与分组业务
   Views/        Avalonia 窗口、交互与系统文件选择器
-tests/DbStudio.Checks/  可直接执行的回归检查和 Avalonia Headless UI 检查
+tests/DbPilot.Checks/  可直接执行的回归检查和 Avalonia Headless UI 检查
 ```
 
 核心业务位于 ViewModel / Provider / Service，文件选择、剪贴板和编辑器交互位于 View。后台任务支持取消，并统一记录中文错误前缀与数据库原始错误内容。
@@ -102,12 +102,12 @@ tests/DbStudio.Checks/  可直接执行的回归检查和 Avalonia Headless UI �
 
 已检查加密、分页、结果类型、历史、TDengine 协议模拟，以及事务编辑、并发冲突回滚、取消、复合主键、提交结果未知、提交后刷新失败等路径。Avalonia Headless 检查覆盖真实控件、单元格渲染和双向编辑。事务协议通过 ADO.NET 测试替身验证，此环境没有四种数据库实例，尚未完成真实数据库联调、长时间压力测试、macOS / Linux 实机测试。
 
-可设置 `DBSTUDIO_PREVIEW` 为 PNG 文件的绝对路径，让检查程序保存主窗口渲染图。
+可设置 `DBPILOT_PREVIEW` 为 PNG 文件的绝对路径，让检查程序保存主窗口渲染图。
 
 ```powershell
-dotnet publish src/DbStudio/DbStudio.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/win-x64
-dotnet publish src/DbStudio/DbStudio.csproj -c Release -r linux-x64 --self-contained true -o artifacts/linux-x64
-dotnet publish src/DbStudio/DbStudio.csproj -c Release -r osx-arm64 --self-contained true -o artifacts/osx-arm64
+dotnet publish src/DbPilot/DbPilot.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/win-x64
+dotnet publish src/DbPilot/DbPilot.csproj -c Release -r linux-x64 --self-contained true -o artifacts/linux-x64
+dotnet publish src/DbPilot/DbPilot.csproj -c Release -r osx-arm64 --self-contained true -o artifacts/osx-arm64
 ```
 
 macOS 的应用包、签名、公证，以及 Windows 安装器、代码签名尚未制作。

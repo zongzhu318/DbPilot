@@ -8,6 +8,6 @@ $sdk = if (Test-Path -LiteralPath $localSdk) { $localSdk } else { 'dotnet' }
 $env:DOTNET_CLI_HOME = Join-Path $PSScriptRoot '.tools/cli'
 $env:NUGET_PACKAGES = Join-Path $PSScriptRoot '.tools/packages'
 $output = Join-Path $PSScriptRoot "artifacts/$Runtime"
-& $sdk publish (Join-Path $PSScriptRoot 'src/DbStudio/DbStudio.csproj') -c Release -r $Runtime --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $output
+& $sdk publish (Join-Path $PSScriptRoot 'src/DbPilot/DbPilot.csproj') -c Release -r $Runtime --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $output
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Output "Published $Runtime to $output"

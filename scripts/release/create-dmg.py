@@ -15,15 +15,15 @@ def create_dmg(app, output, attempts=3):
         raise FileNotFoundError(app)
     output.parent.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, attempts + 1):
-        with tempfile.TemporaryDirectory(prefix='dbstudio-dmg-', dir=os.environ.get('RUNNER_TEMP')) as temp:
+        with tempfile.TemporaryDirectory(prefix='dbpilot-dmg-', dir=os.environ.get('RUNNER_TEMP')) as temp:
             scratch = Path(temp)
             source = scratch / 'source'
             source.mkdir()
-            subprocess.run(['ditto', str(app), str(source / 'DbStudio.app')], check=True)
+            subprocess.run(['ditto', str(app), str(source / 'DbPilot.app')], check=True)
             (source / 'Applications').symlink_to('/Applications')
-            image = scratch / 'DbStudio.dmg'
+            image = scratch / 'DbPilot.dmg'
             # Explicit HFS+ avoids dependence on the runner's default APFS image layout.
-            result = subprocess.run(['hdiutil', 'create', '-volname', 'DbStudio', '-fs', 'HFS+',
+            result = subprocess.run(['hdiutil', 'create', '-volname', 'DbPilot', '-fs', 'HFS+',
                                      '-srcfolder', str(source), '-format', 'UDZO', str(image)],
                                     capture_output=True, text=True)
             if result.returncode == 0:

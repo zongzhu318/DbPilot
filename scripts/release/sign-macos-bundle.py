@@ -8,7 +8,7 @@ import subprocess
 
 def sign_bundle(app, identity, entitlements):
     app = Path(app).resolve()
-    executable = app / 'Contents/MacOS/DbStudio'
+    executable = app / 'Contents/MacOS/DbPilot'
     # codesign treats files in MacOS as code. Old publish outputs can retain PDBs
     # even when the current publish disables symbol generation.
     for symbols in (app / 'Contents/MacOS').rglob('*.pdb'):

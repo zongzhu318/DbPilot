@@ -15,9 +15,9 @@ ET.register_namespace('sparkle', NS)
 def generate(directory, repository, version, signer, key_file):
     directory = Path(directory)
     assets = {
-        'osx-arm64': f'DbStudio-{version}-osx-arm64.dmg',
-        'osx-x64': f'DbStudio-{version}-osx-x64.dmg',
-        'win-x64': f'DbStudio-{version}-win-x64-setup.exe',
+        'osx-arm64': f'DbPilot-{version}-osx-arm64.dmg',
+        'osx-x64': f'DbPilot-{version}-osx-x64.dmg',
+        'win-x64': f'DbPilot-{version}-win-x64-setup.exe',
     }
     for rid, name in assets.items():
         installer = directory / name
@@ -31,10 +31,10 @@ def generate(directory, repository, version, signer, key_file):
             raise ValueError(f'Invalid signing output for {name}')
         root = ET.Element('rss', version='2.0')
         channel = ET.SubElement(root, 'channel')
-        ET.SubElement(channel, 'title').text = f'DbStudio {rid}'
+        ET.SubElement(channel, 'title').text = f'DbPilot {rid}'
         ET.SubElement(channel, 'link').text = f'https://github.com/{repository}/releases'
         item = ET.SubElement(channel, 'item')
-        ET.SubElement(item, 'title').text = f'DbStudio {version}'
+        ET.SubElement(item, 'title').text = f'DbPilot {version}'
         ET.SubElement(item, 'pubDate').text = email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc))
         ET.SubElement(item, f'{{{NS}}}version').text = version
         ET.SubElement(item, f'{{{NS}}}shortVersionString').text = version

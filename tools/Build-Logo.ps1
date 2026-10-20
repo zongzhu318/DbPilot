@@ -75,6 +75,6 @@ public static class LogoAssets
     }
 }
 '@
-$assetDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../src/DbStudio/Assets'))
+$assetDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../src/DbPilot/Assets'))
 [LogoAssets]::Build([IO.Path]::GetFullPath($Source),$assetDirectory)
 Write-Output "Logo assets written to $assetDirectory"

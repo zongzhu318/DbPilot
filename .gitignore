@@ -36,9 +36,9 @@ secret.key
 *.ppk
 id_rsa
 id_ed25519
-# Use these directories for repository-local DBSTUDIO_DATA_DIR or secrets
+# Use these directories for repository-local DBPILOT_DATA_DIR or secrets
 /.local/
-/secrets/
+# secrets/ 由 git-crypt 加密后整体纳入版本管理（见 .gitattributes）
 
 # Temporary files, logs, and OS metadata
 *.log
@@ -59,3 +59,6 @@ __pycache__/
 
 # Sparkle signing key exported by generate_keys
 /sparkle-private-key
+
+# Sparkle signing key export (now stored encrypted in secrets/sparkle.env)
+/.sparkle-private-key

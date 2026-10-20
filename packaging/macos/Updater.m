@@ -3,9 +3,9 @@
 
 typedef int (*CanShutdown)(void);
 static CanShutdown canShutdown;
-@interface DbStudioUpdaterDelegate : NSObject <SPUUpdaterDelegate>
+@interface DbPilotUpdaterDelegate : NSObject <SPUUpdaterDelegate>
 @end
-@implementation DbStudioUpdaterDelegate
+@implementation DbPilotUpdaterDelegate
 - (BOOL)updater:(SPUUpdater *)updater shouldPostponeRelaunchForUpdate:(SUAppcastItem *)item untilInvokingBlock:(void (^)(void))installHandler {
     if (!canShutdown || canShutdown()) return NO;
     NSAlert *alert = [NSAlert new];
@@ -19,12 +19,12 @@ static CanShutdown canShutdown;
 }
 @end
 static SPUStandardUpdaterController *controller;
-static DbStudioUpdaterDelegate *delegate;
-__attribute__((visibility("default"))) void dbstudio_updater_start(CanShutdown callback) {
+static DbPilotUpdaterDelegate *delegate;
+__attribute__((visibility("default"))) void dbpilot_updater_start(CanShutdown callback) {
     canShutdown = callback;
-    delegate = [DbStudioUpdaterDelegate new];
+    delegate = [DbPilotUpdaterDelegate new];
     controller = [[SPUStandardUpdaterController alloc] initWithStartingUpdater:YES updaterDelegate:delegate userDriverDelegate:nil];
 }
-__attribute__((visibility("default"))) void dbstudio_updater_check(void) {
+__attribute__((visibility("default"))) void dbpilot_updater_check(void) {
     [controller checkForUpdates:nil];
 }

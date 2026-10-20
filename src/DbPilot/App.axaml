@@ -1,0 +1,62 @@
+<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="DbPilot.App" Name="DbPilot" RequestedThemeVariant="Light">
+  <Application.Resources>
+    <ResourceDictionary>
+      <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="WorkspaceBackground">#F4F7FB</SolidColorBrush>
+          <SolidColorBrush x:Key="PanelBackground">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="SubtleBackground">#EDF2F7</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlHoverBackground">#E3EDEf</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBorder">#D8E2EB</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceText">#263648</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedText">#61758A</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentBrush">#0F766E</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentHoverBrush">#115E59</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionBackground">#D9F0ED</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionText">#115E59</SolidColorBrush>
+          <SolidColorBrush x:Key="DangerBrush">#BE3546</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBackground">#E5EFEE</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="WorkspaceBackground">#141D29</SolidColorBrush>
+          <SolidColorBrush x:Key="PanelBackground">#1C2837</SolidColorBrush>
+          <SolidColorBrush x:Key="SubtleBackground">#243345</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlHoverBackground">#304556</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBorder">#34485C</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceText">#E2EAF3</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedText">#9BB0C5</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentBrush">#16877F</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentHoverBrush">#1B9A90</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionBackground">#244D50</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionText">#B5F1E9</SolidColorBrush>
+          <SolidColorBrush x:Key="DangerBrush">#FFA5AD</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBackground">#1B323C</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#0F766E" />
+        <ColorPaletteResources x:Key="Dark" Accent="#39BBAE" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+    <Style Selector="Window"><Setter Property="FontSize" Value="13"/><Setter Property="Background" Value="{DynamicResource WorkspaceBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/></Style>
+    <Style Selector="Button"><Setter Property="CornerRadius" Value="5"/><Setter Property="Padding" Value="12,7"/><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/></Style>
+    <Style Selector="Button.primary"><Setter Property="Background" Value="{DynamicResource AccentBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="White"/></Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/><Setter Property="TextElement.Foreground" Value="White"/></Style>
+    <Style Selector="TextBox"><Setter Property="CornerRadius" Value="5"/><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
+    <Style Selector="ComboBox"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="CornerRadius" Value="5"/></Style>
+    <Style Selector="DataGrid"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="VerticalGridLinesBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
+    <Style Selector="DataGridColumnHeader"><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="Foreground" Value="{DynamicResource MutedText}"/></Style>
+    <Style Selector="DataGridRow:selected"><Setter Property="Background" Value="{DynamicResource SelectionBackground}"/><Setter Property="Foreground" Value="{DynamicResource SelectionText}"/></Style>
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource SelectionBackground}"/><Setter Property="Opacity" Value="1"/></Style>
+    <Style Selector="DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource SelectionBackground}"/><Setter Property="Opacity" Value="1"/></Style>
+    <Style Selector="MenuItem.danger"><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></Style>
+  </Application.Styles>
+</Application>

@@ -14,9 +14,9 @@ class DmgTests(unittest.TestCase):
     def run_case(self, errors):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        app = Path(temp.name) / 'DbStudio.app'
+        app = Path(temp.name) / 'DbPilot.app'
         app.mkdir()
-        output = Path(temp.name) / 'installers/DbStudio.dmg'
+        output = Path(temp.name) / 'installers/DbPilot.dmg'
         output.parent.mkdir()
         output.write_bytes(b'previous valid image')
         creates = []

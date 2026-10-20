@@ -16,8 +16,8 @@ class AppcastTests(unittest.TestCase):
     def test_platform_feeds_and_checksums_use_final_installer_bytes(self):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
-            names = ['DbStudio-1.2.3-osx-arm64.dmg', 'DbStudio-1.2.3-osx-x64.dmg',
-                     'DbStudio-1.2.3-win-x64-setup.exe']
+            names = ['DbPilot-1.2.3-osx-arm64.dmg', 'DbPilot-1.2.3-osx-x64.dmg',
+                     'DbPilot-1.2.3-win-x64-setup.exe']
             for name in names:
                 (directory / name).write_bytes(name.encode())
             def sign(args, **kwargs):
@@ -50,7 +50,7 @@ class AppcastTests(unittest.TestCase):
 
     def test_bad_signing_output_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
-            (Path(temp) / 'DbStudio-1.2.3-osx-arm64.dmg').write_bytes(b'installer')
+            (Path(temp) / 'DbPilot-1.2.3-osx-arm64.dmg').write_bytes(b'installer')
             with patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'length="999"')):
                 with self.assertRaises(ValueError):
                     module.generate(temp, 'owner/repo', '1.2.3', 'sign_update', 'secret-file')

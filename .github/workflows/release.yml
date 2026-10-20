@@ -1,46 +1,187 @@
-name: 发布安装包与 Sparkle 更新
+name: 发布 macOS / Windows 版本
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: '发布版本号（例如 0.3.1，不带 v 前缀）'
-        required: true
+      tag:
+        description: '可选：留空时自动取上一个稳定版 +1；填写时必须是尚未发布的全新标签（如 v0.3.1）'
+        required: false
         type: string
-  push:
-    tags: ['v*']
+concurrency:
+  group: dbpilot-stable-release
+  cancel-in-progress: false
 permissions:
   contents: read
-concurrency:
-  group: desktop-release
-  cancel-in-progress: false
 jobs:
   prepare:
-    runs-on: ubuntu-latest
+    name: 准备发布版本
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      previous_tag: ${{ steps.version.outputs.previous_tag }}
+      sha: ${{ steps.commit.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v7
+      - name: 检出代码
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: 测试更新源生成
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
-      - name: 校验版本号与公开更新密钥
+      - name: 读取版本号并生成标签
         id: version
         env:
-          INPUT_VERSION: ${{ inputs.version }}
-          TAG_NAME: ${{ github.ref_name }}
-          EVENT_NAME: ${{ github.event_name }}
-          PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+          REQUESTED_TAG: ${{ inputs.tag }}
         run: |
-          python3 - <<'PY'
-          import base64, os, re
-          version = os.environ['INPUT_VERSION'] if os.environ['EVENT_NAME']=='workflow_dispatch' else os.environ['TAG_NAME'].removeprefix('v')
-          if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', version):
-              raise SystemExit('Version must be a stable numeric version such as 0.3.1')
-          if len(base64.b64decode(os.environ['PUBLIC_KEY'], validate=True)) != 32:
-              raise SystemExit('Set repository variable SPARKLE_PUBLIC_KEY to the Ed25519 public key')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f: f.write(f'version={version}\n')
-          PY
+          set -euo pipefail
+          TAG="${REQUESTED_TAG}"
+          LAST=""
+          if [ -z "$TAG" ]; then
+            # 取已发布的最高稳定版补丁号 +1；无历史发布时回退 csproj 中的版本
+            LAST="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+              --jq '[.[] | select(.draft == false and .prerelease == false and (.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))) | .tag_name | ltrimstr("v")] | sort_by(split(".") | map(tonumber)) | last // empty')"
+            if [ -z "$LAST" ]; then
+              VERSION="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' src/DbPilot/DbPilot.csproj | head -n1)"
+            else
+              IFS=. read -r MAJOR MINOR PATCH <<< "$LAST"
+              VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            fi
+            TAG="v${VERSION}"
+          else
+            VERSION="${TAG#v}"
+            if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::warning::用户录入的版本号有问题：「${VERSION}」不是合法的 X.Y.Z 格式，将在校验阶段失败" >&2
+            fi
+          fi
+          echo "本次发布版本号：${VERSION}"
+          echo "本次发布标签：${TAG}"
+          # 上一个已发布稳定版标签，用于汇总两个版本之间的提交历史
+          PREVIOUS_TAG=""
+          if [ -n "$LAST" ]; then
+            PREVIOUS_TAG="v${LAST}"
+          fi
+          echo "上一个发布标签：${PREVIOUS_TAG:-无（首次发布）}"
+          {
+            echo "### 准备发布版本"
+            echo "- 版本号：${VERSION}"
+            echo "- 标签：${TAG}"
+            echo "- 上一个发布标签：${PREVIOUS_TAG:-无（首次发布）}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=${PREVIOUS_TAG}" >> "$GITHUB_OUTPUT"
+      - name: 校验发布条件
+        id: preflight
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          REPO="zongzhu318/DbPilot"
+          if [ "$GITHUB_REPOSITORY" != "$REPO" ]; then
+            echo "发布流水线只允许在 ${REPO} 运行，当前仓库：${GITHUB_REPOSITORY}" >&2
+            exit 1
+          fi
+          if ! [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "版本号格式错误：${RELEASE_VERSION}，应为 X.Y.Z" >&2
+            exit 1
+          fi
+          RELEASES="$(gh api "repos/${REPO}/releases?per_page=100")"
+          # 已有更高稳定版时拒绝发布，避免更新源回滚
+          HIGHEST="$(echo "$RELEASES" | jq -r '[.[] | select(.draft == false and .prerelease == false and (.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))) | .tag_name | ltrimstr("v")] | sort_by(split(".") | map(tonumber)) | last // empty')"
+          if [ -n "$HIGHEST" ] && [ "$(printf '%s\n%s\n' "$HIGHEST" "$RELEASE_VERSION" | sort -V | tail -n 1)" != "$RELEASE_VERSION" ]; then
+            echo "已存在更新的稳定版本 v${HIGHEST}，禁止发布更旧的版本" >&2
+            exit 1
+          fi
+          # 同名草稿必须人工清理后才能重试；同名 Release 禁止再次触发，每次发布都是全新版本
+          if [ "$(echo "$RELEASES" | jq --arg tag "$RELEASE_TAG" '[.[] | select(.draft and .tag_name == $tag)] | length')" != "0" ]; then
+            echo "存在标签 ${RELEASE_TAG} 的草稿。请检查其资产后删除草稿再重试" >&2
+            exit 1
+          fi
+          if [ "$(echo "$RELEASES" | jq --arg tag "$RELEASE_TAG" '[.[] | select(.tag_name == $tag)] | length')" != "0" ]; then
+            echo "已存在标签 ${RELEASE_TAG} 的 Release。每次发布必须是全新版本，请递增版本号，不要重复触发同名标签" >&2
+            exit 1
+          fi
+          # 历史更新源检查：更新源部署在 GitHub Pages 上，读取现有记录
+          # 临时故障的响应不得被误当作可覆盖的空白更新源
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          NAME="${GITHUB_REPOSITORY#*/}"
+          PAGES_BASE="https://${OWNER}.github.io/${NAME}/stable"
+          for RID in win-x64 osx-arm64 osx-x64; do
+            FEED="previous-appcast-${RID}.xml"
+            STATUS="$(curl -sSL --retry 3 -o "$FEED" -w '%{http_code}' "${PAGES_BASE}/appcast-${RID}.xml" || true)"
+            if [ "$STATUS" != "200" ]; then
+              rm -f "$FEED"
+              if [ "$STATUS" = "404" ]; then
+                continue
+              fi
+              echo "无法读取 ${RID} 历史更新源：HTTP ${STATUS}" >&2
+              exit 1
+            fi
+            VERSIONS="$(python3 -c "import xml.etree.ElementTree as E; print('\n'.join(e.text for e in E.parse('${FEED}').findall('.//{http://www.andymatuschak.org/xml-namespaces/sparkle}version')))" | sed '/^$/d')"
+            rm -f "$FEED"
+            if [ -z "$VERSIONS" ]; then
+              echo "${RID} 历史更新源中没有任何版本记录，拒绝覆盖" >&2
+              exit 1
+            fi
+            while IFS= read -r v; do
+              if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "${RID} 历史更新源包含非法版本号：${v}" >&2
+                exit 1
+              fi
+              if [ "$(printf '%s\n%s\n' "$v" "$RELEASE_VERSION" | sort -V | tail -n 1)" != "$RELEASE_VERSION" ]; then
+                echo "${RID} 历史更新源包含高于本次版本的记录 v${v}，拒绝回滚更新源" >&2
+                exit 1
+              fi
+            done <<< "$VERSIONS"
+          done
+          # Sparkle 公钥必须由私钥推导得出
+          node <<'EOF'
+          const crypto = require("node:crypto");
+          const seed = Buffer.from((process.env.SPARKLE_PRIVATE_KEY || "").trim(), "base64");
+          if (seed.length !== 32) {
+            console.error("SPARKLE_PRIVATE_KEY 必须是 32 字节的新版 Sparkle seed（base64）");
+            process.exit(1);
+          }
+          const privateKey = crypto.createPrivateKey({
+            key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), seed]),
+            format: "der",
+            type: "pkcs8",
+          });
+          const publicKey = crypto
+            .createPublicKey(privateKey)
+            .export({ format: "der", type: "spki" })
+            .subarray(-32)
+            .toString("base64");
+          if (publicKey !== (process.env.SPARKLE_PUBLIC_KEY || "").trim()) {
+            console.error("Sparkle 公钥与私钥不匹配");
+            process.exit(1);
+          }
+          EOF
+      - name: 确定待发布提交
+        id: commit
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/${TAG}^{commit}" >/dev/null; then
+            echo "标签 ${TAG} 已存在。每次发布必须是全新版本，请删除该标签或递增版本号" >&2
+            exit 1
+          fi
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
   build:
+    name: 编译打包
     needs: prepare
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -52,18 +193,24 @@ jobs:
           - os: macos-15-intel
             rid: osx-x64
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
       RID: ${{ matrix.rid }}
       REPOSITORY: ${{ github.repository }}
       PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
     steps:
-      - uses: actions/checkout@v7
+      - name: 检出待发布提交
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
       - name: 离线协议与无界面 UI 检查
-        run: dotnet run --project tests/DbStudio.Checks/DbStudio.Checks.csproj -c Release
+        run: dotnet run --project tests/DbPilot.Checks/DbPilot.Checks.csproj -c Release
       - name: 验证 macOS 打包签名回归
         if: runner.os == 'macOS'
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
@@ -96,11 +243,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/release/package-windows.ps1
-      - uses: actions/upload-artifact@v7
+      - name: 上传安装包
+        uses: actions/upload-artifact@v7
         with:
           name: installer-${{ matrix.rid }}
           path: artifacts/installers/*
           if-no-files-found: error
+          retention-days: 7
       - name: 清理临时 Apple 钥匙串
         if: always() && runner.os == 'macOS'
         shell: bash
@@ -109,30 +258,141 @@ jobs:
             security delete-keychain "$RUNNER_TEMP/release.keychain-db"
           fi
           rm -f "$RUNNER_TEMP/developer.p12"
-  release:
+  publish:
+    name: 发布（Tag 与 Releases）
     needs: [prepare, build]
     runs-on: macos-14
+    timeout-minutes: 15
+    environment: release
     permissions:
       contents: write
     env:
-      VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
       GH_TOKEN: ${{ github.token }}
       REPOSITORY: ${{ github.repository }}
-      RELEASE_TARGET: ${{ github.sha }}
+      SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - name: 检出待发布提交
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+      - name: 下载安装包
+        uses: actions/download-artifact@v8
         with:
           pattern: installer-*
           merge-multiple: true
           path: artifacts/installers
-      - name: 签名安装包并生成更新源
-        env:
-          PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+      - name: 创建并推送版本标签
         run: |
           set -euo pipefail
-          test -n "$PRIVATE_KEY" || { echo 'Set SPARKLE_PRIVATE_KEY secret'; exit 1; }
+          git tag "${RELEASE_TAG}"
+          git push origin "${RELEASE_TAG}"
+      - name: 校验标签与签名密钥
+        run: |
+          set -euo pipefail
+          # 标签必须指向当前检出的提交
+          COMMIT="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [ "$COMMIT" != "$(git rev-parse HEAD)" ]; then
+            echo "检出的提交与标签 ${RELEASE_TAG} 不一致" >&2
+            exit 1
+          fi
+          # Sparkle 公钥必须由私钥推导得出
+          node <<'EOF'
+          const crypto = require("node:crypto");
+          const seed = Buffer.from((process.env.SPARKLE_PRIVATE_KEY || "").trim(), "base64");
+          if (seed.length !== 32) {
+            console.error("SPARKLE_PRIVATE_KEY 必须是 32 字节的新版 Sparkle seed（base64）");
+            process.exit(1);
+          }
+          const privateKey = crypto.createPrivateKey({
+            key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), seed]),
+            format: "der",
+            type: "pkcs8",
+          });
+          const publicKey = crypto
+            .createPublicKey(privateKey)
+            .export({ format: "der", type: "spki" })
+            .subarray(-32)
+            .toString("base64");
+          if (publicKey !== (process.env.SPARKLE_PUBLIC_KEY || "").trim()) {
+            console.error("Sparkle 公钥与私钥不匹配");
+            process.exit(1);
+          }
+          EOF
+      - name: 汇总版本更新说明
+        env:
+          PREVIOUS_TAG: ${{ needs.prepare.outputs.previous_tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p .release-work
+          notes_file=".release-work/release-notes.md"
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # 首次发布没有可对比的上一个标签，沿用手工维护的说明
+            if [ -f docs/release-notes.md ]; then
+              cp docs/release-notes.md "$notes_file"
+              echo "首次发布：沿用 docs/release-notes.md 作为更新说明"
+            else
+              printf 'DbPilot %s 发布。\n' "$RELEASE_VERSION" > "$notes_file"
+            fi
+            exit 0
+          fi
+          if ! git rev-parse -q --verify "refs/tags/${PREVIOUS_TAG}^{commit}" > /dev/null; then
+            echo "历史发布标签 ${PREVIOUS_TAG} 在仓库中不存在，无法汇总提交历史" >&2
+            exit 1
+          fi
+          compare_range="${PREVIOUS_TAG}..HEAD"
+          echo "提交范围：$compare_range"
+
+          # 只汇总用户可感知的变更类型；其余（ci/docs/test/chore 等）不出现在更新弹窗里
+          features="" fixes="" others=""
+          while IFS= read -r subject; do
+            if ! printf '%s\n' "$subject" | grep -Eq '^(feat|fix|perf|refactor|style|build)(\([^)]*\))?!?: '; then
+              continue
+            fi
+            type="$(printf '%s\n' "$subject" | sed -E 's/^([a-z]+)(\([^)]*\))?(!)?: .*/\1/')"
+            scope="$(printf '%s\n' "$subject" | sed -E -n 's/^[a-z]+\(([^)]*)\).*/\1/p')"
+            breaking="$(printf '%s\n' "$subject" | sed -E 's/^[a-z]+(\([^)]*\))?(!)?: .*/\2/')"
+            desc="$(printf '%s\n' "$subject" | sed -E 's/^[a-z]+(\([^)]*\))?(!)?: //')"
+            if [ "$breaking" = "!" ]; then
+              desc="${desc}（不兼容变更）"
+            fi
+            if [ -n "$scope" ]; then
+              entry="- ${desc}（${scope}）"
+            else
+              entry="- $desc"
+            fi
+            case "$type" in
+              feat) features="${features}${entry}"$'\n' ;;
+              fix) fixes="${fixes}${entry}"$'\n' ;;
+              *) others="${others}${entry}"$'\n' ;;
+            esac
+          done < <(git log --no-merges --format=%s "$compare_range")
+
+          if [ -z "$features$fixes$others" ]; then
+            others="- 例行发布，无用户可感知的变更。"$'\n'
+          fi
+
+          emit_section() {
+            if [ -n "$2" ]; then
+              echo "### $1"
+              printf '%s' "$2"
+              echo ""
+            fi
+          }
+          {
+            emit_section "新功能" "$features"
+            emit_section "修复" "$fixes"
+            emit_section "优化" "$others"
+          } > "$notes_file"
+          echo "--- 更新说明预览 ---"
+          cat "$notes_file"
+      - name: 签名安装包并生成更新源
+        run: |
+          set -euo pipefail
+          test -n "$SPARKLE_PRIVATE_KEY" || { echo 'Set SPARKLE_PRIVATE_KEY secret'; exit 1; }
           mkdir -p artifacts/sparkle
           curl -fL --retry 3 https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz -o artifacts/sparkle.tar.xz
           echo 'c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c  artifacts/sparkle.tar.xz' | shasum -a 256 -c -
@@ -141,13 +401,74 @@ jobs:
           umask 077
           KEY_FILE="$RUNNER_TEMP/sparkle-private-key"
           trap 'rm -f "$KEY_FILE"' EXIT
-          printf '%s' "$PRIVATE_KEY" > "$KEY_FILE"
-          python3 scripts/release/generate-appcasts.py --directory artifacts/installers --repository "$REPOSITORY" --version "$VERSION" --signer artifacts/sparkle/bin/sign_update --key-file "$KEY_FILE"
-      - name: 发布 GitHub Release
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          python3 scripts/release/generate-appcasts.py --directory artifacts/installers --repository "$REPOSITORY" --version "$RELEASE_VERSION" --signer artifacts/sparkle/bin/sign_update --key-file "$KEY_FILE"
+      - name: 发布正式 Release
         run: |
           set -euo pipefail
-          if gh release view "v$VERSION" --repo "$REPOSITORY" >/dev/null 2>&1; then
-            echo 'Release already exists. Use a new version to avoid mutating signed update assets.'
-            exit 1
-          fi
-          gh release create "v$VERSION" artifacts/installers/* --repo "$REPOSITORY" --target "$RELEASE_TARGET" --title "DbStudio $VERSION" --generate-notes --latest
+          # 先建草稿传产物，确认无误后转正；发布产物不可变，绝不覆盖
+          gh release create "$RELEASE_TAG" --verify-tag --draft --title "DbPilot ${RELEASE_VERSION}" --notes-file .release-work/release-notes.md
+          gh release upload "$RELEASE_TAG" artifacts/installers/*
+          gh release edit "$RELEASE_TAG" --draft=false --latest
+      - name: 校验产物可达并准备 Pages 部署产物
+        run: |
+          set -euo pipefail
+          # 更新源只有在正式产物可下载后才允许部署
+          for NAME in \
+            "DbPilot-${RELEASE_VERSION}-osx-arm64.dmg" \
+            "DbPilot-${RELEASE_VERSION}-osx-x64.dmg" \
+            "DbPilot-${RELEASE_VERSION}-win-x64-setup.exe"; do
+            curl --fail --location --head --retry 5 --retry-all-errors \
+              "https://github.com/${REPOSITORY}/releases/download/${RELEASE_TAG}/${NAME}" > /dev/null
+          done
+          PAGES=".release-work/pages"
+          mkdir -p "${PAGES}/stable"
+          cp artifacts/installers/appcast-*.xml "${PAGES}/stable/"
+          touch "${PAGES}/.nojekyll"
+          cat > "${PAGES}/index.html" <<'HTML'
+          <!doctype html><meta charset="utf-8"><title>DbPilot 更新</title><a href="https://github.com/zongzhu318/DbPilot/releases/latest">下载 DbPilot for macOS / Windows</a>
+          HTML
+      - name: 上传 Pages 部署产物
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: .release-work/pages
+  pages:
+    name: 部署更新源到 GitHub Pages
+    needs: [prepare, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署更新源
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: 校验线上更新源与 Release 一致
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          NAME="${GITHUB_REPOSITORY#*/}"
+          BASE="https://${OWNER}.github.io/${NAME}/stable"
+          for RID in win-x64 osx-arm64 osx-x64; do
+            curl -fLsS --retry 5 --retry-all-errors \
+              "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/appcast-${RID}.xml" -o "release-${RID}.xml"
+            OK=""
+            for attempt in {1..12}; do
+              if curl -fLsS "${BASE}/appcast-${RID}.xml?release=${RELEASE_TAG}&attempt=${attempt}" -o "pages-${RID}.xml" && cmp -s "release-${RID}.xml" "pages-${RID}.xml"; then
+                OK=1
+                break
+              fi
+              sleep 5
+            done
+            if [ -z "$OK" ]; then
+              echo "Pages 更新源 ${RID} 与 Release 资产不一致" >&2
+              exit 1
+            fi
+          done
