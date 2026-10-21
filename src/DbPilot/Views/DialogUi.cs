@@ -1,12 +1,34 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace DbPilot.Views;
 
 internal static class DialogUi
 {
+    public static void EnableEscapeToClose(Window window)
+    {
+        window.Opened+=(_,_)=>FocusDialog(window);
+        window.Activated+=(_,_)=>FocusDialog(window);
+        window.AddHandler(InputElement.KeyDownEvent,(_,e)=>{
+            // Controls such as an open ComboBox consume Escape first, so only unhandled presses close the dialog.
+            if(e.Key!=Key.Escape||e.Handled)return;
+            e.Handled=true;window.Close();
+        },RoutingStrategies.Bubble);
+    }
+    private static void FocusDialog(Window window)
+    {
+        // Avalonia keeps the previous window's focused element when a dialog without text input opens,
+        // and Escape is only routed to the window that owns the focused element.
+        if(window.FocusManager?.GetFocusedElement() is Visual focused && focused.GetVisualRoot()==window)return;
+        window.GetVisualDescendants().OfType<InputElement>()
+            .FirstOrDefault(e=>e.Focusable&&e.IsEffectivelyEnabled&&e.IsEffectivelyVisible)?.Focus();
+    }
+
     public static Border Header(string title,string? subtitle=null)
     {
         var stack=new StackPanel{Spacing=4};
@@ -97,6 +119,7 @@ internal static class DialogUi
         if(minWidth>0)window.MinWidth=minWidth;
         if(minHeight>0)window.MinHeight=minHeight;
         window.Classes.Add("dialog");
+        EnableEscapeToClose(window);
         return window;
     }
 

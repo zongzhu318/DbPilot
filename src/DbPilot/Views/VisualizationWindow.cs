@@ -24,6 +24,7 @@ public sealed class VisualizationWindow : Window
     {
         Width=1100;Height=750;WindowStartupLocation=WindowStartupLocation.CenterOwner;
         Classes.Add("dialog");
+        DialogUi.EnableEscapeToClose(this);
         var save=new Button{Content="导出 SVG"};save.Click+=async(_,_)=>{try{
             var file=await StorageProvider.SaveFilePickerAsync(new(){Title="导出矢量图",SuggestedFileName="diagram.svg",DefaultExtension="svg"});if(file is null)return;
             var path=file.TryGetLocalPath()??throw new InvalidOperationException("请选择本地文件。");

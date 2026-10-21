@@ -61,6 +61,7 @@ public sealed class SettingsWindow : Window
         Grid.SetRow(footer,1);root.Children.Add(footer);
         Content=root;
         AddHandler(KeyDownEvent,CaptureKeyDown,RoutingStrategies.Tunnel);
+        DialogUi.EnableEscapeToClose(this);
         Closed+=(_,_)=>_captureId=null;
     }
 

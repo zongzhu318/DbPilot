@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Presenters;
 using Avalonia.Data;
 using Avalonia.Input;
@@ -30,6 +31,7 @@ public sealed partial class MainWindow : Window
     private bool _loading;
     private bool _closingSaved;
     private bool _closingCheck;
+    private bool _quitting;
     private Point _dragStart;
     private QueryTab? _dragTab;
     private CompletionWindow? _completion;
@@ -66,15 +68,41 @@ public sealed partial class MainWindow : Window
         heartbeat.Tick+=async(_,_)=>await _vm.HeartbeatAsync();Closed+=(_,_)=>{heartbeat.Stop();_updates?.Dispose();};
         Opened+=async (_,_)=>{await _vm.InitializeAsync();ApplySettings();UpdateWorkspaceState();heartbeat.Start();InitializeUpdates();if(OperatingSystem.IsMacOS())App.RefreshMacMenu(this);};
         Closing+=async (_,e)=>{
-            if(_closingSaved)return;e.Cancel=true;_vm.Cancel();
-            if(_vm.Busy){_vm.Log("正在取消当前任务，请等待完成后再关闭窗口。");return;}
-            if(_closingCheck)return;_closingCheck=true;
-            bool valid=FlushGridEdits();
-            if((!valid || _vm.Tabs.Any(t=>t.IsDirty || t.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain))) && !await Confirm("有尚未保存的 SQL 或未提交的数据改动。确定关闭并放弃本地改动？结果未知的事务仍需核对数据库。","放弃本地改动")){_closingCheck=false;return;}
-            try{_vm.Settings.Width=Width;_vm.Settings.Height=Height;CaptureWorkspaceLayout();await _vm.Store.SaveSettingsAsync(_vm.Settings);}
-            catch(Exception ex){_vm.Log("布局保存失败："+ex.Message);}
+            if(_closingSaved)return;e.Cancel=true;
+            if(!await PrepareCloseAsync())return;
             _closingSaved=true;Close();
         };
+    }
+    internal async void RequestQuit()
+    {
+        if(_quitting||_closingSaved)return;
+        _quitting=true;
+        try
+        {
+            if(!await PrepareCloseAsync())return;
+            _closingSaved=true;
+            foreach(var window in OwnedWindows.ToArray())if(window.IsVisible)window.Close();
+            (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+        }
+        finally{_quitting=false;}
+    }
+    private async Task<bool> PrepareCloseAsync()
+    {
+        _vm.Cancel();
+        if(_vm.Busy){_vm.Log("正在取消当前任务，请等待完成后再关闭窗口。");return false;}
+        if(_closingCheck)return false;
+        _closingCheck=true;
+        try
+        {
+            bool valid=FlushGridEdits();
+            // Prompt above the active dialog; a modal child would otherwise block or hide the confirmation.
+            var owner=OwnedWindows.LastOrDefault(w=>w.IsVisible)??(Window)this;
+            if((!valid || _vm.Tabs.Any(t=>t.IsDirty || t.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain))) && !await DialogUi.ConfirmAsync(owner,"有尚未保存的 SQL 或未提交的数据改动。确定关闭并放弃本地改动？结果未知的事务仍需核对数据库。","放弃本地改动"))return false;
+            try{_vm.Settings.Width=Width;_vm.Settings.Height=Height;CaptureWorkspaceLayout();await _vm.Store.SaveSettingsAsync(_vm.Settings);}
+            catch(Exception ex){_vm.Log("布局保存失败："+ex.Message);}
+            return true;
+        }
+        finally{_closingCheck=false;}
     }
     private void ApplySettings()
     {

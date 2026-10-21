@@ -24,6 +24,7 @@ public sealed class DatabaseToolsWindow : Window
     {
         Title="数据库工具 · DbPilot";Width=1180;Height=790;MinWidth=940;MinHeight=640;WindowStartupLocation=WindowStartupLocation.CenterOwner;
         Classes.Add("dialog");
+        DialogUi.EnableEscapeToClose(this);
         _status.Text="选择连接与数据库，然后加载对象。";
         _openSql=openSql;var connections=profiles.ToArray();_source.ItemsSource=connections;_target.ItemsSource=connections;
         _source.SelectionChanged+=(_,_)=>{_database.Text=(_source.SelectedItem as ConnectionProfile)?.Database;_tables.ItemsSource=null;};

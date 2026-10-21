@@ -55,7 +55,7 @@ public sealed partial class App
         appMenu.Items.Add(AppAction("显示全部",null,()=>SendAppAction("unhideAllApplications:")));
         appMenu.Items.Add(new NativeMenuItemSeparator());
         var quit=new NativeMenuItem("退出 DbPilot"){Gesture=new KeyGesture(Key.Q,KeyModifiers.Meta)};
-        quit.Click+=(_,_)=>CurrentMainWindow()?.Close();appMenu.Items.Add(quit);
+        quit.Click+=(_,_)=>CurrentMainWindow()?.RequestQuit();appMenu.Items.Add(quit);
         return appMenu;
     }
     private static MainWindow? CurrentMainWindow()=>

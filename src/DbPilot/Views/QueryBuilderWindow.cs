@@ -11,6 +11,7 @@ public sealed class QueryBuilderWindow : Window
     {
         Title="查询构建器 · "+table;Width=780;Height=660;WindowStartupLocation=WindowStartupLocation.CenterOwner;
         Classes.Add("dialog");
+        DialogUi.EnableEscapeToClose(this);
         var panel=new StackPanel{Spacing=10,Margin=new Thickness(24,18,24,18)};var fields=new WrapPanel();var checks=new List<CheckBox>();
         foreach(var column in columns){var check=new CheckBox{Content=column.Name,IsChecked=true,Margin=new Thickness(0,0,18,4)};checks.Add(check);fields.Children.Add(check);}
         var filterField=new ComboBox{ItemsSource=columns.Select(c=>c.Name).ToArray(),SelectedIndex=0,Width=170};

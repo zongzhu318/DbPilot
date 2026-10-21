@@ -13,6 +13,7 @@ public sealed class ObjectDesignerWindow : Window
     {
         Title=(createOnly?"新建表":"对象设计器")+" · "+database;Width=1000;Height=700;WindowStartupLocation=WindowStartupLocation.CenterOwner;
         Classes.Add("dialog");
+        DialogUi.EnableEscapeToClose(this);
         var actions=new[]{"创建表","创建视图","创建索引","新增字段","修改字段","删除字段","删除索引","删除表","删除视图"}.ToList();
         if(kind==DatabaseKind.TDengine)actions.AddRange(["创建超级表","创建子表","新增标签","删除标签","设置 TTL"]);
         if(createOnly)actions=actions.Where(a=>a is "创建表" or "创建超级表" or "创建子表").ToList();

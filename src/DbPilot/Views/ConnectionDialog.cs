@@ -23,6 +23,7 @@ public sealed class ConnectionDialog : Window
         var heading=original is null ? "新建连接" : "编辑连接";
         Title=heading; Width=660; Height=780; MinWidth=620; MinHeight=640; CanResize=false; WindowStartupLocation=WindowStartupLocation.CenterOwner;
         Classes.Add("dialog");
+        DialogUi.EnableEscapeToClose(this);
         var p=original ?? new ConnectionProfile(); _id=p.Id;_legacyGroup=p.Group;
         _name.Text=p.Name;_host.Text=p.Host;_port.Text=p.Port.ToString();_database.Text=p.Database;_username.Text=p.Username;_password.Text=p.Password;_timeout.Text=p.Timeout.ToString();_timezone.Text=p.Timezone;
         _kind.SelectedItem=p.Kind; _ssl.IsChecked=p.Ssl; _publicKey.IsChecked=p.AllowPublicKeyRetrieval; _integrated.IsChecked=p.IntegratedSecurity;
