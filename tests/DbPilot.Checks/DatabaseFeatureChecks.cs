@@ -17,7 +17,7 @@ internal static class DatabaseFeatureChecks
     public static void RunUi(MainWindow window,Action<bool,string> check)
     {
         var flags=System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance;
-        var sidebar=window.FindControl<Grid>("SidebarPanel")!;
+        var sidebar=window.FindControl<Border>("SidebarPanel")!;
         var workspace=window.FindControl<Grid>("WorkspaceGrid")!;
         var editor=window.FindControl<Border>("EditorPane")!;
         var logs=window.FindControl<Expander>("TaskLogPanel")!;
@@ -113,6 +113,7 @@ internal static class DatabaseFeatureChecks
         var targetRow=catalogGrid.GetVisualDescendants().OfType<DataGridRow>().First(r=>r.DataContext is DbObject{Name:"events"});
         var targetPoint=targetRow.TranslatePoint(new Point(30,targetRow.Bounds.Height/2),window)!.Value;
         catalogGrid.SelectedItem=catalogGrid.ItemsSource!.Cast<DbObject>().First(o=>o.Name=="orders");
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();Dispatcher.UIThread.RunJobs();
         window.MouseDown(targetPoint,MouseButton.Right);window.MouseUp(targetPoint,MouseButton.Right);Dispatcher.UIThread.RunJobs();
         var menu=catalogGrid.ContextMenu!;
         check(menu.IsOpen&&catalogGrid.SelectedItem is DbObject{Name:"events"},"right click on a catalog row opens its menu and selects the clicked table");
@@ -156,7 +157,7 @@ internal static class DatabaseFeatureChecks
         await vm.ConnectAsync();vm.RebuildTree();var retainedConnection=vm.Nodes[0];
         check(vm.Nodes.Count==vm.Connections.Count && vm.Nodes.All(n=>n.IsConnection),"connections appear directly at the tree root regardless of legacy group");
         vm.RebuildTree("no-matching-connection");check(vm.Nodes.Count==0,"connection filtering leaves no empty group nodes");vm.RebuildTree();retainedConnection=vm.Nodes[0];
-        vm.Disconnect();check(ReferenceEquals(vm.Nodes[0],retainedConnection)&&retainedConnection.Label.Contains("已关闭"),"disconnect updates only its node without rebuilding other tree branches");
+        vm.Disconnect();check(ReferenceEquals(vm.Nodes[0],retainedConnection)&&!retainedConnection.IsOpen,"disconnect updates only its node without rebuilding other tree branches");
         await vm.ConnectAsync();check(vm.IsOpen(profile)&&(await vm.ReadDatabasesAsync(profile,default)).Contains("sales"),"open connection restores metadata access");
         var tabsBeforeOpen=vm.Tabs.Count;
         await vm.OpenTableAsync(new(){Profile=profile,Database="sales",Object=first.Table},100);

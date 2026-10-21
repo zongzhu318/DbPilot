@@ -35,6 +35,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();DataContext=_vm;InitializeCompletion();InitializeSqlContextMenu();
+        if(OperatingSystem.IsMacOS())AppMenuBar.IsVisible=false;
         AddHandler(KeyDownEvent,WorkspaceKeyDown,Avalonia.Interactivity.RoutingStrategies.Tunnel);
         TableCatalogGrid.AddHandler(PointerPressedEvent,CatalogPointerPressed,RoutingStrategies.Tunnel,handledEventsToo:true);
         TableCatalogGrid.AddHandler(ContextRequestedEvent,CatalogContextRequested,RoutingStrategies.Tunnel,handledEventsToo:true);
@@ -42,7 +43,7 @@ public sealed partial class MainWindow : Window
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(DatabaseKind.MySQL,false);
         SqlEditor.TextChanged+=(_,_)=>{if(!_loading && _displayedTab is not null)_displayedTab.Sql=SqlEditor.Text;};
         _vm.ResultChanged+=ShowResult;
-        _vm.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(MainViewModel.Busy))UpdateEditControls();if(e.PropertyName is nameof(MainViewModel.Busy) or nameof(MainViewModel.ConnectionStatus))UpdateConnectionControls();};
+        _vm.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(MainViewModel.Busy))UpdateEditControls();if(e.PropertyName is nameof(MainViewModel.Busy) or nameof(MainViewModel.ConnectionStatus))UpdateConnectionControls();if(e.PropertyName==nameof(MainViewModel.HasTab))UpdateWorkspaceState();};
         Closed+=(_,_)=>{_databaseRequest?.Cancel();_catalogCancellation?.Cancel();};
         Results.RowEditEnded+=(_,_)=>UpdateEditControls();
         Results.Sorting+=(_,e)=>{
@@ -52,6 +53,7 @@ public sealed partial class MainWindow : Window
             if(_vm.Tab?.Result is {} result)for(int i=0;i<Results.Columns.Count;i++)Results.Columns[i].Header=result.Columns[i]+(Results.Columns[i]==e.Column?(_sortAscending?" ↑":" ↓"):"");
         };
         UpdateEditControls();
+        UpdateWorkspaceState();
         var expansion=TreeViewItem.IsExpandedProperty.Changed.AddClassHandler<TreeViewItem>(async(item,args)=>{
             if(item.IsExpanded&&item.DataContext is ObjectNode{Loaded:false} node&&item.GetVisualAncestors().Contains(ObjectTree)&&!_vm.Busy)await _vm.ExpandAsync(node);
         });
@@ -60,7 +62,7 @@ public sealed partial class MainWindow : Window
         QueryTabs.AddHandler(DragDrop.DropEvent,TabsDrop);
         var heartbeat=new Avalonia.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(60)};
         heartbeat.Tick+=async(_,_)=>await _vm.HeartbeatAsync();Closed+=(_,_)=>{heartbeat.Stop();_updates?.Dispose();};
-        Opened+=async (_,_)=>{await _vm.InitializeAsync();ApplySettings();heartbeat.Start();InitializeUpdates();};
+        Opened+=async (_,_)=>{await _vm.InitializeAsync();ApplySettings();UpdateWorkspaceState();heartbeat.Start();InitializeUpdates();};
         Closing+=async (_,e)=>{
             if(_closingSaved)return;e.Cancel=true;_vm.Cancel();
             if(_vm.Busy){_vm.Log("正在取消当前任务，请等待完成后再关闭窗口。");return;}
@@ -104,7 +106,7 @@ public sealed partial class MainWindow : Window
         if(_vm.Busy){_vm.Log("请先终止当前查询。");return;}
         bool valid=FlushGridEdits();
         if((!valid || _vm.Tab?.IsDirty==true || _vm.Tab?.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain)) && !await Confirm("该查询存在未保存脚本或未提交数据。确定放弃本地改动？","放弃本地改动"))return;
-        if(_vm.Tab is {} tab)_vm.Tabs.Remove(tab);_vm.Tab=_vm.Tabs.LastOrDefault();if(_vm.Tab is null)_vm.NewQuery();
+        if(_vm.Tab is {} tab)_vm.Tabs.Remove(tab);_vm.Tab=_vm.Tabs.LastOrDefault();
     }
     private void ChangeTab(object? sender,SelectionChangedEventArgs e)
     {
@@ -118,10 +120,10 @@ public sealed partial class MainWindow : Window
     }
     private void ChangeConnection(object? sender,SelectionChangedEventArgs e)
     {
-        if(_displayedTab is null || _vm.Connection is null)return;
+        if(_vm.Connection is null)return;
         CloseCatalog();
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(_vm.Connection.Kind,_vm.Settings.Dark);
-        if(_displayedTab.Connection?.Id!=_vm.Connection.Id){
+        if(_displayedTab is not null && _displayedTab.Connection?.Id!=_vm.Connection.Id){
             if(!FlushGridEdits() || _displayedTab.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain)){
                 _vm.Log("请先提交或撤销当前页的数据改动，再切换连接。");_vm.Connection=_vm.Connections.FirstOrDefault(p=>p.Id==_displayedTab.Connection?.Id);return;
             }

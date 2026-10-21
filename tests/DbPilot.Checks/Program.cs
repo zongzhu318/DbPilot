@@ -109,13 +109,16 @@ AppBuilder.Configure<DbPilot.App>().UseSkia().UseHeadless(new AvaloniaHeadlessPl
 var window=new MainWindow();
 window.Show();
 Dispatcher.UIThread.RunJobs();
+var mainVm=(DbPilot.ViewModels.MainViewModel)window.DataContext!;
 Check(window.FindControl<TextEditor>("SqlEditor") is not null,"main window creates SQL editor");
-Check(window.FindControl<TextEditor>("SqlEditor")!.Text.Contains("SELECT 1"),"initial SQL tab populates editor");
+Check(mainVm.Tabs.Count==0&&!window.FindControl<Border>("EditorPane")!.IsVisible&&!window.FindControl<Grid>("ConnectionBar")!.IsVisible&&!window.FindControl<Grid>("QueryBar")!.IsVisible&&!window.FindControl<Grid>("ResultsPane")!.IsVisible&&window.FindControl<Grid>("StartPanel")!.IsVisible,"fresh window starts on a clean empty workspace");
+mainVm.NewQuery();Dispatcher.UIThread.RunJobs();
+Check(window.FindControl<Border>("EditorPane")!.IsVisible&&window.FindControl<Grid>("ConnectionBar")!.IsVisible&&window.FindControl<Grid>("QueryBar")!.IsVisible&&!window.FindControl<Grid>("StartPanel")!.IsVisible,"creating a query reveals the editor and hides the empty workspace");
+Check(window.FindControl<TextEditor>("SqlEditor")!.Text.Contains("SELECT 1"),"new SQL tab populates editor");
 Check(window.FindControl<TextEditor>("SqlEditor")!.SyntaxHighlighting is not null,"SQL syntax highlighting is configured");
 Check(window.FindControl<DataGrid>("Results") is not null,"main window creates result grid");
 Check(window.FindControl<TreeView>("ObjectTree") is not null,"main window creates object tree");
 Check(!window.FindControl<Button>("CommitEditsButton")!.IsEnabled,"arbitrary SQL result has no enabled commit action");
-var mainVm=(DbPilot.ViewModels.MainViewModel)window.DataContext!;
 var buildMenu=typeof(MainWindow).GetMethod("BuildTreeContextMenu",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
 string[] MenuFor(ObjectNode node){buildMenu.Invoke(window,[node]);return window.FindControl<TreeView>("ObjectTree")!.ContextMenu!.ItemsSource!.OfType<MenuItem>().Select(m=>m.Header?.ToString()??"").ToArray();}
 var connectionMenu=MenuFor(new(){Profile=profile,IsConnection=true});

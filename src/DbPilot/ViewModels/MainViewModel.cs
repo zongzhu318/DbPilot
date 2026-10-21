@@ -32,7 +32,8 @@ public sealed partial class MainViewModel : Observable
         await Guard(async ct=>{try{using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(TimeSpan.FromSeconds(Math.Min(15,profile.Timeout)));await using var provider=_createProvider(profile);await provider.TestAsync(timeout.Token);}catch{_connected.Remove(profile.Id);_disconnected.Add(profile.Id);Changed(nameof(ConnectionStatus));UpdateConnectionNodes(profile,true);throw;}});
     }
     private QueryTab? _tab;
-    public QueryTab? Tab { get => _tab; set => Set(ref _tab,value); }
+    public QueryTab? Tab { get => _tab; set {if(Set(ref _tab,value))Changed(nameof(HasTab));} }
+    public bool HasTab=>_tab is not null;
     private string _status = "就绪 · 请新建或打开连接";
     public string Status { get=>_status; set=>Set(ref _status,value); }
     private bool _busy;
@@ -50,7 +51,6 @@ public sealed partial class MainViewModel : Observable
             foreach(var item in await Store.LoadHistoryAsync()) History.Add(item);
             RebuildTree();
         });
-        NewQuery();
     }
     public void Log(string message,string level="Info") { Status = message; Logs.Insert(0,$"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{level}]  {message}"); while (Logs.Count>500) Logs.RemoveAt(Logs.Count-1); }
     public async Task Guard(Func<CancellationToken,Task> action)
@@ -63,14 +63,16 @@ public sealed partial class MainViewModel : Observable
         finally { if(Settings.PersistLogs)try{await Store.SaveLogsAsync(Logs.ToArray());}catch(Exception ex){Log("日志保存失败："+ex.Message,"Warn");}_operation = null; Busy = false; }
     }
     public void Cancel() => _operation?.Cancel();
+    public bool HasNoConnections=>Connections.Count==0&&Nodes.Count==0;
     public void RebuildTree(string filter = "")
     {
         Nodes.Clear();
         foreach(var p in Connections.Where(p=>string.IsNullOrWhiteSpace(filter) || p.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))) {
-            var node = new ObjectNode { Label = ConnectionNodeLabel(p), Profile = p, IsConnection=true, IconColor=ConnectionIconColor(p) };
-            node.Children.Add(new ObjectNode { Label="双击加载数据库",Profile=p,Loaded=true });
+            var node = new ObjectNode { Label = ConnectionNodeLabel(p), Profile = p, IsConnection=true, Kind=ObjectNodeKind.Connection, IsOpen=_connected.Contains(p.Id), IconColor=ConnectionIconColor(p) };
+            node.Children.Add(new ObjectNode { Label="双击加载数据库",Profile=p,Kind=ObjectNodeKind.Hint,Loaded=true });
             Nodes.Add(node);
         }
+        Changed(nameof(HasNoConnections));
     }
 
     public async Task ExpandAsync(ObjectNode node) => await Guard(async ct =>
@@ -78,24 +80,25 @@ public sealed partial class MainViewModel : Observable
         EnsureConnected(node.Profile);
         Connection = node.Profile;
         if (node.Loaded) return;
-        node.Children.Clear(); node.Children.Add(new ObjectNode { Label="正在加载…",Profile=node.Profile,Loaded=true });
+        node.Children.Clear(); node.Children.Add(new ObjectNode { Label="正在加载…",Profile=node.Profile,Kind=ObjectNodeKind.Hint,Loaded=true });
         try {
             var profile = CloneForDatabase(node.Profile,node.Database);
             await using var provider = _createProvider(profile);
             if(node.Object is {} table){
                 var columns=await provider.ColumnsAsync(table,ct);node.Children.Clear();
-                foreach(var column in columns)node.Children.Add(new(){Label=$"{(column.IsTag?"标签":column.PrimaryKey?"主键":"字段")}  {column.Name} : {column.Type}",Profile=node.Profile,Database=node.Database,Loaded=true});
+                foreach(var column in columns)node.Children.Add(new(){Label=$"{(column.IsTag?"标签":column.PrimaryKey?"主键":"字段")}  {column.Name} : {column.Type}",Profile=node.Profile,Database=node.Database,Kind=ObjectNodeKind.Column,Loaded=true});
             } else if(node.Database is null) {
                 var databases = await provider.DatabasesAsync(ct); node.Children.Clear();
-                foreach(var database in databases) { var child = new ObjectNode { Label=$"▣  {database}", Profile=node.Profile,Database=database }; child.Children.Add(new ObjectNode { Label="双击加载对象",Profile=node.Profile,Loaded=true }); node.Children.Add(child); }
+                foreach(var database in databases) { var child = new ObjectNode { Label=database, Profile=node.Profile,Database=database,Kind=ObjectNodeKind.Database }; child.Children.Add(new ObjectNode { Label="双击加载对象",Profile=node.Profile,Kind=ObjectNodeKind.Hint,Loaded=true }); node.Children.Add(child); }
             } else {
                 var objects = await provider.ObjectsAsync(node.Database,ct); node.Children.Clear();
                 foreach(var schema in objects.GroupBy(o=>o.Parent.Length>0?o.Kind+" / "+o.Parent:string.IsNullOrWhiteSpace(o.Schema) ? o.Kind : o.Schema + " / " + o.Kind)) {
-                    var category = new ObjectNode { Label=schema.Key,Profile=node.Profile,Database=node.Database,Loaded=true };
+                    var category = new ObjectNode { Label=schema.Key,Profile=node.Profile,Database=node.Database,Kind=ObjectNodeKind.Category,Loaded=true };
                     foreach(var obj in schema){
                         bool tableObject=obj.Kind is "表" or "视图" or "普通表" or "子表" or "超级表";
-                        var item=new ObjectNode { Label=obj.Name+(obj.Signature.Length>0?"("+obj.Signature+")":""),Profile=node.Profile,Database=node.Database,Object=obj,Loaded=!tableObject };
-                        if(tableObject)item.Children.Add(new(){Label="展开查看字段",Profile=node.Profile,Loaded=true});category.Children.Add(item);
+                        var item=new ObjectNode { Label=obj.Name+(obj.Signature.Length>0?"("+obj.Signature+")":""),Profile=node.Profile,Database=node.Database,Object=obj,Loaded=!tableObject,
+                            Kind=tableObject ? (obj.Kind=="视图"?ObjectNodeKind.View:ObjectNodeKind.Table) : ObjectNodeKind.Object };
+                        if(tableObject)item.Children.Add(new(){Label="展开查看字段",Profile=node.Profile,Kind=ObjectNodeKind.Hint,Loaded=true});category.Children.Add(item);
                     }
                     node.Children.Add(category);
                 }

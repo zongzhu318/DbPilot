@@ -70,12 +70,24 @@ public sealed class QueryTab : Observable
     public int PageSize { get; set; } = 100;
     public override string ToString() => Title;
 }
+public enum ObjectNodeKind { Connection, Database, Category, Table, View, Object, Column, Hint }
 public sealed class ObjectNode : Observable
 {
     public bool IsConnection { get; init; }
-    public string DatabaseIcon => Profile?.Kind switch { DatabaseKind.MySQL=>"MY", DatabaseKind.PostgreSQL=>"PG", DatabaseKind.SqlServer=>"SQL", DatabaseKind.TDengine=>"TD", _=>"DB" };
+    public ObjectNodeKind Kind { get; init; } = ObjectNodeKind.Hint;
+    public bool IsDatabase => Kind==ObjectNodeKind.Database;
+    public bool IsCategory => Kind==ObjectNodeKind.Category;
+    public bool IsTable => Kind==ObjectNodeKind.Table;
+    public bool IsView => Kind==ObjectNodeKind.View;
+    public bool IsOtherObject => Kind==ObjectNodeKind.Object;
+    public bool IsColumn => Kind==ObjectNodeKind.Column;
+    public bool IsHint => Kind==ObjectNodeKind.Hint;
     private string _iconColor="#858B93";
     public string IconColor { get=>_iconColor; set=>Set(ref _iconColor,value); }
+    private bool _isOpen;
+    public bool IsOpen { get=>_isOpen; set {if(Set(ref _isOpen,value)){Changed(nameof(StatusColor));Changed(nameof(StatusTip));}} }
+    public string StatusColor => IsOpen ? "#2FA84F" : "#A6ACB6";
+    public string StatusTip => IsOpen ? "已连接" : "未连接";
     private bool _visible = true;
     public bool Visible { get => _visible; set => Set(ref _visible,value); }
     private string _label="";

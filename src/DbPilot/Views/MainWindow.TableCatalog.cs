@@ -15,6 +15,7 @@ public sealed partial class MainWindow
         WorkspaceModeTabs.SelectedIndex=catalog?0:1;
         _changingWorkspaceMode=false;
         TableCatalogPanel.IsVisible=catalog;
+        StartPanel.IsVisible=!catalog&&!_vm.HasTab;
     }
     private async void ChangeWorkspaceMode(object? sender,SelectionChangedEventArgs e)
     {
