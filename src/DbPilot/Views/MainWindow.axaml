@@ -98,7 +98,7 @@
  </Window.Styles>
  <Grid RowDefinitions="Auto,Auto,*,Auto">
   <Border x:Name="AppTitleBar" Grid.Row="0" Classes="compactBar" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,3,0,0" Padding="8,2">
-   <StackPanel Orientation="Horizontal" Spacing="6"><Image Source="/Assets/logo.png" Width="22" Height="22"/><TextBlock Text="DbPilot" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
+   <StackPanel Orientation="Horizontal" Spacing="6"><Image Source="/Assets/logo.png" Width="22" Height="22"/><TextBlock x:Name="AppNameText" Text="DbPilot" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
     <Menu x:Name="AppMenuBar" Background="Transparent">
      <MenuItem Header="文件">
       <MenuItem x:Name="FileNewConnection" Header="新建连接" Click="NewConnection"/>
@@ -324,6 +324,6 @@
     </Expander>
    </Grid>
   </Grid>
-  <Border Grid.Row="3" Background="{DynamicResource StatusBackground}" Padding="10,3"><Grid ColumnDefinitions="*,Auto"><TextBlock Foreground="{DynamicResource StatusText}" Text="{Binding Status}" FontSize="11" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Foreground="{DynamicResource StatusText}" Opacity="0.8" Text="DbPilot 0.3 · 数据库工具" FontSize="11"/></Grid></Border>
+  <Border Grid.Row="3" Background="{DynamicResource StatusBackground}" Padding="10,3"><Grid ColumnDefinitions="*,Auto"><TextBlock Foreground="{DynamicResource StatusText}" Text="{Binding Status}" FontSize="11" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="AppVersionText" Grid.Column="1" Foreground="{DynamicResource StatusText}" Opacity="0.8" Text="DbPilot 0.3 · 数据库工具" FontSize="11"/></Grid></Border>
  </Grid>
 </Window>

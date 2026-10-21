@@ -22,6 +22,11 @@ if(args.Contains("--sqlserver-live")){Environment.ExitCode=await SqlServerLiveCh
 var count=0;
 void Check(bool condition,string name){if(!condition)throw new Exception("FAILED: "+name);Console.WriteLine("PASS "+name);count++;}
 void Press(TopLevel target,Key key,RawInputModifiers modifiers)=>target.KeyPress(key,modifiers,PhysicalKey.None,null);
+var appAssembly=typeof(DbPilot.App).Assembly;
+var channel=appAssembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute),false).Cast<System.Reflection.AssemblyMetadataAttribute>().Single(a=>a.Key=="BuildChannel").Value;
+var appInfo=appAssembly.GetType("DbPilot.AppInfo")!;
+var dataFolder=(string)appInfo.GetProperty("DataFolderName")!.GetValue(null)!;
+Check(channel=="Development"?dataFolder=="DbPilot Dev":dataFolder=="DbPilot","build channel isolates application data");
 var dirtyTab=new QueryTab();dirtyTab.Sql="SELECT 42";
 Check(dirtyTab.DisplayTitle.EndsWith(" •"),"query tab marks unsaved SQL");
 dirtyTab.SavedSql=dirtyTab.Sql;Check(!dirtyTab.DisplayTitle.EndsWith(" •"),"saved query clears unsaved marker");

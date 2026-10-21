@@ -61,7 +61,7 @@ public static class ShortcutCatalog
         new("tools.database","工具","数据库工具","Ctrl+Alt+B","Meta+Alt+B"),
         new("tools.settings","工具","设置","Ctrl+OemComma","Meta+OemComma"),
         new("tools.update","工具","检查更新",null,null),
-        new("tools.about","工具","关于 DbPilot",null,null)
+        new("tools.about","工具",$"关于 {AppInfo.DisplayName}",null,null)
     ];
 
     private static readonly Dictionary<string,ShortcutAction> ById=Actions.ToDictionary(a=>a.Id);

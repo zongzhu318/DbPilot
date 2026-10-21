@@ -35,6 +35,12 @@ internal sealed class ApplicationUpdates : IDisposable
     {
         try
         {
+            if (AppInfo.IsDevelopment)
+            {
+                Error = "当前运行的是开发版，不提供自动更新。请使用正式安装版本。";
+                return;
+            }
+
             if (OperatingSystem.IsMacOS())
             {
                 var bridge = Path.Combine(AppContext.BaseDirectory, "libDbPilotUpdater.dylib");
@@ -48,7 +54,7 @@ internal sealed class ApplicationUpdates : IDisposable
                 var config = JsonSerializer.Deserialize<UpdateConfiguration>(File.ReadAllText(path))!;
                 var uri = new Uri(config.FeedUrl);
                 if (uri.Scheme != "https") throw new InvalidDataException("更新源必须使用 HTTPS。");
-                WinSetAppDetails("DbPilot", "DbPilot", typeof(ApplicationUpdates).Assembly.GetName().Version!.ToString(3));
+                WinSetAppDetails(AppInfo.DisplayName, AppInfo.DisplayName, typeof(ApplicationUpdates).Assembly.GetName().Version!.ToString(3));
                 WinSetFeed(config.FeedUrl);
                 if (WinSetPublicKey(config.PublicKey) == 0) throw new InvalidDataException("更新公钥格式无效。");
                 WinSetCanShutdown(_canShutdown);

@@ -101,7 +101,7 @@ PostgreSQL 每个数据库使用独立连接上下文；SQL Server 在元数据�
 
 ## 本地数据
 
-默认保存于当前用户的本地应用数据目录 `DbPilot`（Windows 为 `%LOCALAPPDATA%\DbPilot`）。可设置环境变量 `DBPILOT_DATA_DIR` 指定独立目录。
+默认保存于当前用户的本地应用数据目录 `DbPilot`（Windows 为 `%LOCALAPPDATA%\DbPilot`）。开发版使用独立的 `DbPilot Dev` 目录，与正式版的连接、历史、设置和密钥完全隔离；可用环境变量 `DBPILOT_DATA_DIR` 覆盖两者。
 
 - `connections.json`：连接配置，数据库密码、SSH 密码和私钥口令经 AES-256-GCM 加密。
 - `history.json`：查询历史，SQL 文本经 AES-256-GCM 加密。
@@ -149,6 +149,23 @@ dotnet publish src/DbPilot/DbPilot.csproj -c Release -r osx-arm64 --self-contain
 ```
 
 macOS 的应用包、签名、公证，以及 Windows 安装器、代码签名尚未制作。
+
+## 本地开发版
+
+Debug 构建自动标记为开发版，使用独立数据目录，且不启用自动更新。macOS 可直接运行源码：
+
+```sh
+scripts/dev/run-macos.sh
+```
+
+需要独立的应用图标和菜单栏名称时，生成 `DbPilot Dev.app`（bundle id 为 `com.dbpilot.dbpilot.dev`）：
+
+```sh
+scripts/dev/package-macos-dev.sh            # 输出到 artifacts/macos-dev/
+scripts/dev/package-macos-dev.sh --install  # 同时安装到 ~/Applications
+```
+
+开发版永远不会写入 `/Applications/DbPilot.app`；正式版仍通过发布流水线或 DMG 安装与更新。
 
 ## 安装包与自动更新
 

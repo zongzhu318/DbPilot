@@ -45,7 +45,7 @@ public sealed class SettingsWindow : Window
         _wordWrap.IsChecked=settings.WordWrap;_lineNumbers.IsChecked=settings.LineNumbers;
         _continueOnError.IsChecked=settings.ContinueOnScriptError;_persistLogs.IsChecked=settings.PersistLogs;
 
-        Title="设置 · DbPilot";Width=920;Height=720;MinWidth=780;MinHeight=580;WindowStartupLocation=WindowStartupLocation.CenterOwner;
+        Title=$"设置 · {AppInfo.DisplayName}";Width=920;Height=720;MinWidth=780;MinHeight=580;WindowStartupLocation=WindowStartupLocation.CenterOwner;
         Classes.Add("dialog");
         var tabs=new TabControl{Classes={"nav"},ItemsSource=new[]
         {

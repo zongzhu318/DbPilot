@@ -10,7 +10,7 @@ public sealed class WorkspaceStore
     private readonly JsonSerializerOptions _json = new() { WriteIndented = true };
     public WorkspaceStore(string? folder = null)
     {
-        _folder = folder ?? Environment.GetEnvironmentVariable("DBPILOT_DATA_DIR") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DbPilot");
+        _folder = folder ?? Environment.GetEnvironmentVariable("DBPILOT_DATA_DIR") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.DataFolderName);
         Directory.CreateDirectory(_folder);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(_folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }

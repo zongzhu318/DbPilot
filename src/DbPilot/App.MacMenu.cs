@@ -42,7 +42,7 @@ public sealed partial class App
     private static NativeMenu BuildAppMenu()
     {
         var appMenu=new NativeMenu();
-        var about=new NativeMenuItem("关于 DbPilot");
+        var about=new NativeMenuItem($"关于 {AppInfo.DisplayName}");
         about.Click+=(_,_)=>_=ShowAbout(CurrentMainWindow());
         appMenu.Items.Add(about);
         appMenu.Items.Add(new NativeMenuItemSeparator());
@@ -50,11 +50,11 @@ public sealed partial class App
         settings.Click+=(_,_)=>CurrentMainWindow()?.ExecuteMenuAction("ShowSettings");
         appMenu.Items.Add(settings);_macSettingsItem=settings;
         appMenu.Items.Add(new NativeMenuItemSeparator());
-        appMenu.Items.Add(AppAction("隐藏 DbPilot","Meta+H",()=>SendAppAction("hide:")));
+        appMenu.Items.Add(AppAction($"隐藏 {AppInfo.DisplayName}","Meta+H",()=>SendAppAction("hide:")));
         appMenu.Items.Add(AppAction("隐藏其他应用","Meta+Alt+H",()=>SendAppAction("hideOtherApplications:")));
         appMenu.Items.Add(AppAction("显示全部",null,()=>SendAppAction("unhideAllApplications:")));
         appMenu.Items.Add(new NativeMenuItemSeparator());
-        var quit=new NativeMenuItem("退出 DbPilot"){Gesture=new KeyGesture(Key.Q,KeyModifiers.Meta)};
+        var quit=new NativeMenuItem($"退出 {AppInfo.DisplayName}"){Gesture=new KeyGesture(Key.Q,KeyModifiers.Meta)};
         quit.Click+=(_,_)=>CurrentMainWindow()?.RequestQuit();appMenu.Items.Add(quit);
         return appMenu;
     }
@@ -111,8 +111,8 @@ public sealed partial class App
     }
     internal static async Task ShowAbout(Window? mainWindow)
     {
-        var version=typeof(App).Assembly.GetName().Version?.ToString(3);
-        var dialog=DialogUi.Dialog("关于 DbPilot",460);
+        var version=AppInfo.Version;
+        var dialog=DialogUi.Dialog($"关于 {AppInfo.DisplayName}",460);
         dialog.SizeToContent=SizeToContent.Height;dialog.CanResize=false;
         var logo=new Bitmap(AssetLoader.Open(new Uri("avares://DbPilot/Assets/logo.png")));
         dialog.Closed+=(_,_)=>logo.Dispose();
@@ -120,8 +120,8 @@ public sealed partial class App
         var iconTile=new Border{Width=112,Height=112,CornerRadius=new CornerRadius(26),Padding=new Thickness(12),HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,0,0,18)};
         iconTile.Classes.Add("flatPanel");
         iconTile.Child=new Image{Source=logo,Stretch=Stretch.Uniform};
-        var name=new TextBlock{Text="DbPilot",FontSize=26,FontWeight=FontWeight.SemiBold,HorizontalAlignment=HorizontalAlignment.Center};
-        var tagline=new TextBlock{Text="数据库工作台",FontSize=13,HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,6,0,16)};
+        var name=new TextBlock{Text=AppInfo.DisplayName,FontSize=26,FontWeight=FontWeight.SemiBold,HorizontalAlignment=HorizontalAlignment.Center};
+        var tagline=new TextBlock{Text=AppInfo.IsDevelopment?"数据库工作台 · 开发版":"数据库工作台",FontSize=13,HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,6,0,16)};
         tagline.Classes.Add("hint");
         var pill=new Border{CornerRadius=new CornerRadius(11),Padding=new Thickness(12,4),HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,0,0,22)};
         pill.Classes.Add("flatPanel");

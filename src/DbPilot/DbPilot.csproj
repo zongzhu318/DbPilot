@@ -5,9 +5,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Version>0.3.0</Version>
+    <BuildChannel Condition="'$(BuildChannel)' == '' and '$(Configuration)' == 'Debug'">Development</BuildChannel>
+    <BuildChannel Condition="'$(BuildChannel)' == ''">Production</BuildChannel>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/logo.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildChannel" Value="$(BuildChannel)" />
+  </ItemGroup>
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
     <PackageReference Include="Avalonia" Version="11.2.3" />

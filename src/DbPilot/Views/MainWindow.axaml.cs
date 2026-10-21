@@ -38,6 +38,10 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();DataContext=_vm;InitializeCompletion();InitializeSqlContextMenu();
+        Title=$"{AppInfo.DisplayName} — 数据库工作台";
+        AppNameText.Text=AppInfo.DisplayName;
+        AppVersionText.Text=$"{AppInfo.DisplayName} {AppInfo.Version} · 数据库工具";
+        HelpAbout.Header=$"关于 {AppInfo.DisplayName}";
         if(OperatingSystem.IsMacOS())AppTitleBar.IsVisible=false;
         AddHandler(KeyDownEvent,WorkspaceKeyDown,Avalonia.Interactivity.RoutingStrategies.Tunnel);
         TableCatalogGrid.AddHandler(PointerPressedEvent,CatalogPointerPressed,RoutingStrategies.Tunnel,handledEventsToo:true);
