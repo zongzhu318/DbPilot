@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -40,6 +41,7 @@ public sealed partial class MainWindow : Window
         TableCatalogGrid.AddHandler(PointerPressedEvent,CatalogPointerPressed,RoutingStrategies.Tunnel,handledEventsToo:true);
         TableCatalogGrid.AddHandler(ContextRequestedEvent,CatalogContextRequested,RoutingStrategies.Tunnel,handledEventsToo:true);
         ObjectTree.ContextMenu!.Opening+=(_,_)=>{if(ObjectTree.SelectedItem is ObjectNode selected)BuildTreeContextMenu(selected);};
+        ObjectTree.ContainerPrepared+=(_,e)=>PrepareTreeItem(e.Container as TreeViewItem);
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(DatabaseKind.MySQL,false);
         SqlEditor.TextChanged+=(_,_)=>{if(!_loading && _displayedTab is not null)_displayedTab.Sql=SqlEditor.Text;};
         _vm.ResultChanged+=ShowResult;
@@ -201,6 +203,18 @@ public sealed partial class MainWindow : Window
         if(node.Database is not null && node.Object is null)await ShowTableCatalog();
     }
     private void RefreshTree(object? sender,RoutedEventArgs e)=>_vm.RebuildTree();
+    private void PrepareTreeItem(TreeViewItem? item)
+    {
+        if(item is null)return;
+        item.Loaded+=(_,_)=>CompactTreeItem(item);
+        item.ContainerPrepared+=(_,e)=>PrepareTreeItem(e.Container as TreeViewItem);
+    }
+    private static void CompactTreeItem(TreeViewItem item)
+    {
+        foreach(var part in item.GetVisualDescendants())
+            if(part is Grid{Name:"PART_Header"} header)header.Margin=new Thickness(item.Level*8,0,0,0);
+            else if(part is Panel{Name:"PART_ExpandCollapseChevronContainer"} chevron)chevron.Margin=new Thickness(0,0,4,0);
+    }
     private void FilterObjects(object? sender,TextChangedEventArgs e)
     {
         if(ObjectTree is null)return;
