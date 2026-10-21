@@ -105,6 +105,7 @@ await EditingChecks.Run(Check);
 await EditingViewModelChecks.Run(Check);
 await AdvancedChecks.Run(Check,folder);
 await DatabaseFeatureChecks.Run(Check);
+await LargeFieldChecks.Run(Check);
 AppBuilder.Configure<DbPilot.App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions{UseHeadlessDrawing=false}).SetupWithoutStarting();
 var window=new MainWindow();
 window.Show();
@@ -127,11 +128,33 @@ var databaseMenu=MenuFor(new(){Profile=profile,Database="sandbox"});
 Check(databaseMenu.Contains("查看表列表")&&databaseMenu.Contains("新建表")&&!databaseMenu.Contains("编辑连接"),"database context menu contains database actions");
 var tableMenu=MenuFor(new(){Profile=profile,Database="sandbox",Object=new("sandbox","public","items","表")});
 Check(tableMenu.Contains("查看表结构与建表语句")&&tableMenu.Contains("删除表")&&!tableMenu.Contains("关闭连接"),"table context menu contains table actions");
+var tree=window.FindControl<TreeView>("ObjectTree")!;
+var treeProfile=new ConnectionProfile{Name="tree-probe",Kind=DatabaseKind.MySQL};
+var treeConnectionNode=new ObjectNode{Label=treeProfile.Name,Profile=treeProfile,IsConnection=true,Kind=ObjectNodeKind.Connection,Loaded=true};
+var treeTableNode=new ObjectNode{Label="items",Profile=treeProfile,Database="sandbox",Object=new("sandbox","","items","表"),Kind=ObjectNodeKind.Table,Loaded=true};
+treeTableNode.Children.Add(new(){Label="展开查看字段",Profile=treeProfile,Kind=ObjectNodeKind.Hint,Loaded=true});
+treeConnectionNode.Children.Add(treeTableNode);
+mainVm.Connections.Add(treeProfile);mainVm.Connection=treeProfile;mainVm.Disconnect();mainVm.Nodes.Add(treeConnectionNode);
+window.UpdateLayout();Dispatcher.UIThread.RunJobs();
+var connectionItem=tree.GetVisualDescendants().OfType<TreeViewItem>().First(i=>ReferenceEquals(i.DataContext,treeConnectionNode));
+connectionItem.IsExpanded=true;window.UpdateLayout();AvaloniaHeadlessPlatform.ForceRenderTimerTick();Dispatcher.UIThread.RunJobs();
+var tableItem=connectionItem.GetVisualDescendants().OfType<TreeViewItem>().First(i=>ReferenceEquals(i.DataContext,treeTableNode));
+var tableLabel=tableItem.GetVisualDescendants().OfType<TextBlock>().First(t=>t.Text=="items");
+var tablePoint=tableLabel.TranslatePoint(new Point(tableLabel.Bounds.Width/2,tableLabel.Bounds.Height/2),window)!.Value;
+window.MouseDown(tablePoint,Avalonia.Input.MouseButton.Left);window.MouseUp(tablePoint,Avalonia.Input.MouseButton.Left);Dispatcher.UIThread.RunJobs();
+Check(mainVm.Status.Contains("请先打开连接再浏览数据"),"single click on a table node opens its data instead of only expanding fields");
+mainVm.Log("idle");
+var chevron=tableItem.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().First(t=>t.Name=="PART_ExpandCollapseChevron");
+Check(chevron.Bounds.Width>=16,"table chevron keeps a comfortable hit target");
+var chevronPoint=chevron.TranslatePoint(new Point(chevron.Bounds.Width/2,chevron.Bounds.Height/2),window)!.Value;
+window.MouseDown(chevronPoint,Avalonia.Input.MouseButton.Left);window.MouseUp(chevronPoint,Avalonia.Input.MouseButton.Left);Dispatcher.UIThread.RunJobs();
+Check(mainVm.Status=="idle","clicking the table chevron toggles fields without opening data");
+treeTableNode.Children.Clear();mainVm.Nodes.Remove(treeConnectionNode);mainVm.Connections.Remove(treeProfile);mainVm.Connection=null;Dispatcher.UIThread.RunJobs();
 CompletionChecks.Run(window,mainVm,Check);
 DatabaseFeatureChecks.RunUi(window,Check);
-var uiResult=new QueryResult(["id","description","quantity"],[new object?[]{1,"Editable row",10},new object?[]{2,"Zebra row",20}],0,false,[typeof(int),typeof(string),typeof(int)]);
+var uiResult=new QueryResult(["id","description","quantity","happened"],[new object?[]{1,"Editable row",10,new DateTime(2026,10,18,12,0,0)},new object?[]{2,"Zebra row",20,new DateTime(2026,10,19,8,30,0)}],0,false,[typeof(int),typeof(string),typeof(int),typeof(DateTime)]);
 mainVm.Tab!.Result=uiResult;
-mainVm.Tab.Edits=new TableEditSession(uiResult,[new("id","int",false,true,"","",IsGenerated:true),new("description","text",true,false,"",""),new("quantity","int",false,false,"","")]);
+mainVm.Tab.Edits=new TableEditSession(uiResult,[new("id","int",false,true,"","",IsGenerated:true),new("description","text",true,false,"",""),new("quantity","int",false,false,"",""),new("happened","datetime",true,false,"","")]);
 mainVm.SelectTab(mainVm.Tab);Dispatcher.UIThread.RunJobs();
 Check(!window.FindControl<DataGrid>("Results")!.IsReadOnly && window.FindControl<Button>("CommitEditsButton")!.IsEnabled,"table edit session enables grid and transaction actions");
 Check(window.FindControl<DataGrid>("Results")!.Columns[0].IsReadOnly && !window.FindControl<DataGrid>("Results")!.Columns[1].IsReadOnly,"grid keeps generated fields read-only while allowing normal columns");
@@ -141,6 +164,7 @@ var retainedTab=mainVm.Tab;mainVm.NewQuery();mainVm.Tab=retainedTab;Dispatcher.U
 Check(ReferenceEquals(((ResultRows)window.FindControl<DataGrid>("Results")!.ItemsSource!).Table,retainedTab.Edits.Data) && retainedTab.Edits.PendingCount==1,"switching query tabs preserves the same edit session");
 using(var rendered=window.CaptureRenderedFrame()){
     Check(window.FindControl<DataGrid>("Results")!.GetVisualDescendants().OfType<TextBlock>().Any(t=>t.Text=="Uncommitted change"),"result-grid binding renders actual cell values");
+    Check(window.FindControl<DataGrid>("Results")!.GetVisualDescendants().OfType<TextBlock>().Any(t=>t.Text=="2026-10-18 12:00:00"),"result-grid formats date/time values as yyyy-MM-dd HH:mm:ss");
 }
 var editGrid=window.FindControl<DataGrid>("Results")!;
 var displayedRows=(ResultRows)editGrid.ItemsSource!;
@@ -153,10 +177,16 @@ Check(retainedTab.Edits.Data.Rows[0][1].Equals("Changed through grid editor"),"t
 editGrid.CurrentColumn=editGrid.Columns[2];Check(editGrid.BeginEdit(),"typed numeric cell can enter editing");Dispatcher.UIThread.RunJobs();
 editGrid.GetVisualDescendants().OfType<TextBox>().First(t=>t.IsVisible).Text="42";
 Check(editGrid.CommitEdit(DataGridEditingUnit.Cell,true) && editGrid.CommitEdit(DataGridEditingUnit.Row,true) && retainedTab.Edits.Data.Rows[0][2] is int quantity && quantity==42,"numeric cell editing retains integer parameter type");
+editGrid.CurrentColumn=editGrid.Columns[3];Check(editGrid.BeginEdit(),"date cell can enter editing");Dispatcher.UIThread.RunJobs();
+var dateEditor=editGrid.GetVisualDescendants().OfType<TextBox>().First(t=>t.IsVisible);
+Check(dateEditor.Text=="2026-10-18 12:00:00","date editor uses yyyy-MM-dd HH:mm:ss");
+dateEditor.Text="2026-10-20 09:15:30";
+Check(editGrid.CommitEdit(DataGridEditingUnit.Cell,true) && editGrid.CommitEdit(DataGridEditingUnit.Row,true) && retainedTab.Edits.Data.Rows[0][3] is DateTime happened && happened==new DateTime(2026,10,20,9,15,30),"date cell editing parses the display format back into DateTime");
 var sortHeader=editGrid.GetVisualDescendants().OfType<DataGridColumnHeader>().First(h=>h.Content?.ToString()=="description");
 var headerPoint=sortHeader.TranslatePoint(new Point(sortHeader.Bounds.Width/2,sortHeader.Bounds.Height/2),window)!.Value;
 for(int click=0;click<2;click++){window.MouseDown(headerPoint,Avalonia.Input.MouseButton.Left);window.MouseUp(headerPoint,Avalonia.Input.MouseButton.Left);Dispatcher.UIThread.RunJobs();}
 Check((int)displayedRows[0].Row[0]==2,"column-header sorting reorders displayed row adapters");
+LargeFieldChecks.RunUi(window,mainVm,retainedTab,Check);
 var previewPath=Environment.GetEnvironmentVariable("DBPILOT_PREVIEW");
 if(!string.IsNullOrEmpty(previewPath)) {
     using var frame=window.CaptureRenderedFrame();

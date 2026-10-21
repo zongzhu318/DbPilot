@@ -40,7 +40,8 @@ public static class EditCommandBuilder
                 }
                 var set=change.Kind==RowChangeKind.Update ? string.Join(", ",change.Values.Select(p=>provider.Quote(p.Key)+" = "+ColumnParam(schema[p.Key],p.Value))) : "";
                 if(change.Kind==RowChangeKind.Update && set.Length==0)continue;
-                var where=string.Join(" AND ",columns.OrderByDescending(c=>c.PrimaryKey).Select(Predicate));
+                // Large fields only hold a truncated preview locally, so they cannot participate in the optimistic check.
+                var where=string.Join(" AND ",columns.Where(c=>change.PreviewColumns?.Contains(c.Name)!=true).OrderByDescending(c=>c.PrimaryKey).Select(Predicate));
                 sql=change.Kind==RowChangeKind.Delete ? $"DELETE FROM {provider.Qualified(table)} WHERE {where};" : $"UPDATE {provider.Qualified(table)} SET {set} WHERE {where};";
             }
             commands.Add(new(sql,parameters));

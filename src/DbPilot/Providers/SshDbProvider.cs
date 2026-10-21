@@ -57,5 +57,7 @@ public sealed class SshDbProvider : IDbProvider,IEditableDbProvider
     public string Quote(string name)=>_names.Quote(name);
     public string Qualified(DbObject table)=>_names.Qualified(table);
     public string PageSql(DbObject table,string filter,int page,int size)=>_names.PageSql(table,filter,page,size);
+    public BrowseQuery BuildBrowse(DbObject table,IReadOnlyList<ColumnInfo> columns,string filter,int page,int size)=>_names.BuildBrowse(table,columns,filter,page,size);
+    public async Task<object?[]> ReadValuesAsync(DbObject table,IReadOnlyList<ColumnInfo> columns,IReadOnlyList<ColumnInfo> keyColumns,IReadOnlyList<object?> keyValues,CancellationToken ct)=>await(await Open(ct)).ReadValuesAsync(table,columns,keyColumns,keyValues,ct);
     public async ValueTask DisposeAsync(){try{if(_inner is not null)await _inner.DisposeAsync();}finally{Cleanup();await _names.DisposeAsync();_gate.Dispose();}}
 }

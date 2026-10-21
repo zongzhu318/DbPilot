@@ -190,7 +190,14 @@ public sealed partial class MainWindow : Window
     {
         if(_vm.Busy)return;_vm.Logs.Clear();try{await _vm.Store.SaveLogsAsync([]);}catch(Exception ex){_vm.Log("清空日志文件失败："+ex.Message,"Warn");}
     }
-    private async void OpenNode(object? sender,TappedEventArgs e)=>await OpenSelected();
+    private async void TapNode(object? sender,TappedEventArgs e)
+    {
+        // The chevron sits outside the header presenter; taps there must only toggle expansion.
+        if(e.Source is Control source && source.GetVisualAncestors().Any(a=>a is Panel{Name:"PART_ExpandCollapseChevronContainer"}))return;
+        if(ItemAt<ObjectNode>(e.Source) is not {Kind:ObjectNodeKind.Table or ObjectNodeKind.View} node)return;
+        if(ObjectTree.SelectedItem!=node)ObjectTree.SelectedItem=node;
+        await OpenSelected();
+    }
     private async void OpenNodeMenu(object? sender,RoutedEventArgs e)=>await OpenSelected();
     private async Task OpenSelected()
     {
@@ -213,7 +220,7 @@ public sealed partial class MainWindow : Window
     {
         foreach(var part in item.GetVisualDescendants())
             if(part is Grid{Name:"PART_Header"} header)header.Margin=new Thickness(item.Level*8,0,0,0);
-            else if(part is Panel{Name:"PART_ExpandCollapseChevronContainer"} chevron)chevron.Margin=new Thickness(0,0,4,0);
+            else if(part is Panel{Name:"PART_ExpandCollapseChevronContainer"} chevron)chevron.Margin=new Thickness(0);
     }
     private void FilterObjects(object? sender,TextChangedEventArgs e)
     {
@@ -252,8 +259,11 @@ public sealed partial class MainWindow : Window
         Results.Columns.Clear();_resultData=new DataTable();
         if(result is null){Results.ItemsSource=null;RowCount.Text="0 行";UpdateEditControls();return;}
         _resultData=_vm.Tab?.Edits?.Data??ResultTable.Create(result);
+        var previews=_vm.Tab?.PreviewColumns;
         for(int i=0;i<result.Columns.Count;i++){
-            Results.Columns.Add(new ResultTextColumn{ColumnIndex=i,Header=result.Columns[i],Binding=new Binding("["+i+"]"){Mode=BindingMode.TwoWay},IsReadOnly=_vm.Tab?.Edits is not {} edits || !edits.CanEditColumn(i),CanUserSort=true,SortMemberPath="c"+i,Width=new DataGridLength(150)});
+            var type=_resultData.Columns[i].DataType;
+            var converter=type==typeof(DateTime)||type==typeof(DateTimeOffset)||type==typeof(DateOnly)?DateTimeValueConverter.Instance:null;
+            Results.Columns.Add(new ResultTextColumn{ColumnIndex=i,Header=result.Columns[i],DisplayConverter=converter,Previewed=previews?.Contains(i)==true,Binding=new Binding("["+i+"]"){Mode=BindingMode.TwoWay,Converter=converter,ConverterParameter=type},IsReadOnly=_vm.Tab?.Edits is not {} edits || !edits.CanEditColumn(i),CanUserSort=true,SortMemberPath="c"+i,Width=new DataGridLength(150)});
         }
         _resultRows=new ResultRows(_resultData.DefaultView);Results.ItemsSource=_resultRows;RowCount.Text=$"{result.Rows.Count} 行"+(result.Truncated?"（已截断）":"");
         UpdateEditControls();
@@ -265,11 +275,48 @@ public sealed partial class MainWindow : Window
     }
     private async void CopyCell(object? sender,RoutedEventArgs e)
     {
-        if(Results.SelectedItem is ResultRow row && Results.CurrentColumn is {} column && Clipboard is not null)
-            await Clipboard.SetTextAsync(SqlTools.Display(row[Results.Columns.IndexOf(column)]));
+        if(Results.SelectedItem is not ResultRow row || Results.CurrentColumn is not {} column || Clipboard is not {} clipboard)return;
+        int index=Results.Columns.IndexOf(column);var tab=_vm.Tab;var text=SqlTools.Display(row[index]);
+        if(tab?.PreviewColumns?.Contains(index)==true){
+            var raw=PreviewedRawValue(tab,row,index);
+            if(row.Row.RowState==DataRowState.Added)_vm.Log("新行尚未写入数据库，已复制当前预览内容。","Warn");
+            else if(raw is null or DBNull)text="NULL";
+            else if(tab.Result is {} result){
+                await using var reader=LargeValueReader.Create(tab,result,out var reason);
+                if(reader is null)_vm.Log("完整内容读取失败，已复制预览："+reason,"Warn");
+                else{
+                    var originals=OriginalValues(row.Row);
+                    if(reader.IsComplete(originals))text=CopyText(raw);
+                    else{
+                        try{var values=await reader.ReadAsync(originals,CancellationToken.None);int position=reader.PositionOf(index);if(position>=0)text=CopyText(values[position]);}
+                        catch(Exception ex){_vm.Log("完整内容读取失败，已复制预览："+ex.Message,"Warn");}
+                    }
+                }
+            }else _vm.Log("完整内容读取失败，已复制预览：缺少结果信息。","Warn");
+        }
+        await clipboard.SetTextAsync(text);
     }
     private async void CopyRow(object? sender,RoutedEventArgs e)
-    {if(Results.SelectedItem is ResultRow row && Clipboard is not null)await Clipboard.SetTextAsync(string.Join("\t",row.Row.ItemArray.Select(SqlTools.Display)));}
+    {
+        if(Results.SelectedItem is not ResultRow row || Clipboard is not {} clipboard)return;
+        var tab=_vm.Tab;var values=(object?[])row.Row.ItemArray.Clone();var previews=tab?.PreviewColumns?.ToHashSet();
+        if(tab is not null && previews is {Count:>0}){
+            if(row.Row.RowState==DataRowState.Added)_vm.Log("新行尚未写入数据库，已复制当前预览内容。","Warn");
+            else if(tab.Result is {} result){
+                await using var reader=LargeValueReader.Create(tab,result,out var reason);
+                if(reader is null)_vm.Log("完整内容读取失败，已复制预览："+reason,"Warn");
+                else{
+                    var originals=OriginalValues(row.Row);
+                    if(reader.IsComplete(originals))for(int i=0;i<reader.ResultIndexes.Count;i++)values[reader.ResultIndexes[i]]=originals[reader.ResultIndexes[i]];
+                    else{
+                        try{var full=await reader.ReadAsync(originals,CancellationToken.None);for(int i=0;i<full.Length;i++)values[reader.ResultIndexes[i]]=full[i];}
+                        catch(Exception ex){_vm.Log("完整内容读取失败，已复制预览："+ex.Message,"Warn");}
+                    }
+                }
+            }else _vm.Log("完整内容读取失败，已复制预览：缺少结果信息。","Warn");
+        }
+        await clipboard.SetTextAsync(string.Join("\t",values.Select((v,i)=>previews?.Contains(i)==true?CopyText(v):SqlTools.Display(v))));
+    }
     private async void CopyObjectName(object? sender,RoutedEventArgs e)
     {if(ObjectTree.SelectedItem is ObjectNode{Object:{} obj} && Clipboard is not null)await Clipboard.SetTextAsync(obj.ToString());}
     private async void ViewStructure(object? sender,RoutedEventArgs e)
@@ -325,16 +372,28 @@ public sealed partial class MainWindow : Window
     }
     private async void ExportResult(object? sender,RoutedEventArgs e)
     {
-        if(_vm.Tab?.Result is not {} result){_vm.Log("当前没有可导出的查询结果。");return;}
+        var tab=_vm.Tab;
+        if(tab?.Result is not {} result){_vm.Log("当前没有可导出的查询结果。");return;}
+        var needsFull=result.Rows.Count>0 && result.PreviewColumns is {Count:>0};
+        if(needsFull){
+            var probe=LargeValueReader.Create(tab,result,out var reason);
+            if(probe is null){_vm.Log("大字段完整内容无法导出："+reason,"Warn");return;}
+            await probe.DisposeAsync();
+        }
         await _vm.Guard(async ct=>{
             var file=await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions{Title="导出当前结果（CSV / JSON / SQL）",SuggestedFileName="result.csv",FileTypeChoices=[new FilePickerFileType("CSV"){Patterns=["*.csv"]},new FilePickerFileType("JSON"){Patterns=["*.json"]},new FilePickerFileType("SQL INSERT"){Patterns=["*.sql"]}]});
             if(file is null)return;var path=file.TryGetLocalPath()??throw new InvalidOperationException("请选择本地文件。");
             string format=Path.GetExtension(path).ToLowerInvariant() switch{".json"=>"json",".sql"=>"sql",_=>"csv"};
-            var profile=_vm.Tab?.Connection??_vm.Connection??new();DbObject? target=null;
+            var selected=result;
+            if(needsFull){
+                await using var reader=LargeValueReader.Create(tab,result,out var reason)??throw new InvalidOperationException("大字段完整内容无法读取："+reason);
+                selected=await reader.ReadFullResultAsync(result,ct);
+            }
+            var profile=tab.Connection??_vm.Connection??new();DbObject? target=null;
             if(format=="sql"){target=await ChooseExportTarget(profile);if(target is null)return;}
             await using var provider=DbProviderFactory.Create(profile);
-            await AtomicFile.WriteAsync(path,stream=>ResultExport.WriteAsync(result,stream,format,provider,profile.Kind,target,ct),ct);
-            _vm.Log($"已导出当前结果 {result.Rows.Count} 行"+(result.Truncated?"（不包含被截断的数据）":""));
+            await AtomicFile.WriteAsync(path,stream=>ResultExport.WriteAsync(selected,stream,format,provider,profile.Kind,target,ct),ct);
+            _vm.Log($"已导出当前结果 {selected.Rows.Count} 行"+(selected.Truncated?"（不包含被截断的数据）":""));
         });
     }
     private Task<DbObject?> ChooseExportTarget(ConnectionProfile profile)

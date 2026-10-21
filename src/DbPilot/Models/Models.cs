@@ -40,7 +40,7 @@ public sealed record DbObject(string Database, string Schema, string Name, strin
 }
 public sealed record ColumnInfo(string Name, string Type, bool Nullable, bool PrimaryKey, string Default, string Comment, bool IsTag = false, bool IsGenerated = false, bool HasDefault = false, bool IsIdentity = false, string GenerationExpression = "", bool Stored = false);
 public sealed record IndexInfo(string Name, string Columns, string Kind);
-public sealed record QueryResult(IReadOnlyList<string> Columns, IReadOnlyList<object?[]> Rows, long Affected, bool Truncated, IReadOnlyList<Type>? Types = null);
+public sealed record QueryResult(IReadOnlyList<string> Columns, IReadOnlyList<object?[]> Rows, long Affected, bool Truncated, IReadOnlyList<Type>? Types = null, IReadOnlyList<int>? PreviewColumns = null);
 public sealed record QueryHistoryEntry(DateTimeOffset ExecutedAt,Guid ConnectionId,string ConnectionName,string Sql,long Elapsed,int Rows,string Database="")
 {
     public override string ToString()=>$"{ExecutedAt.ToLocalTime():MM-dd HH:mm}  {ConnectionName} · {Elapsed} ms · {Rows} 行";
@@ -60,6 +60,8 @@ public sealed class QueryTab : Observable
     public ConnectionProfile? Connection { get=>_connection; set{if(Set(ref _connection,value))Changed(nameof(ContextLabel));} }
     public string ContextLabel=>Connection is null?"尚未选择连接":$"{Connection.Name} / {(string.IsNullOrWhiteSpace(Connection.Database)?"未选择数据库":Connection.Database)}";
     public DbObject? Table { get; set; }
+    public IReadOnlyList<ColumnInfo>? TableColumns { get; set; }
+    public IReadOnlyList<int>? PreviewColumns { get; set; }
     public int Page { get; set; }
     public QueryResult? Result { get; set; }
     public IReadOnlyList<QueryResult> ResultSets { get; set; } = [];

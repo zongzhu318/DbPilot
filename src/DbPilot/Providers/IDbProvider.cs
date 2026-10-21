@@ -1,6 +1,7 @@
 using DbPilot.Models;
 
 namespace DbPilot.Providers;
+public sealed record BrowseQuery(string Sql,IReadOnlyList<int> PreviewColumns);
 public interface IDbProvider : IAsyncDisposable
 {
     Task TestAsync(CancellationToken ct);
@@ -12,6 +13,8 @@ public interface IDbProvider : IAsyncDisposable
     string Quote(string name);
     string Qualified(DbObject table);
     string PageSql(DbObject table, string filter, int page, int size);
+    BrowseQuery BuildBrowse(DbObject table,IReadOnlyList<ColumnInfo> columns,string filter,int page,int size)=>new(PageSql(table,filter,page,size),[]);
+    Task<object?[]> ReadValuesAsync(DbObject table,IReadOnlyList<ColumnInfo> columns,IReadOnlyList<ColumnInfo> keyColumns,IReadOnlyList<object?> keyValues,CancellationToken ct)=>throw new NotSupportedException("当前连接不支持按主键读取字段。");
     async Task<IReadOnlyList<QueryResult>> QueryMultipleAsync(string sql,int limit,CancellationToken ct)=>[await QueryAsync(sql,limit,ct)];
     Task<IReadOnlyList<QueryResult>> ExplainAsync(string sql,CancellationToken ct)=>QueryMultipleAsync("EXPLAIN "+sql,500,ct);
     IAsyncEnumerable<QueryResult> StreamAsync(string sql,int batchSize,CancellationToken ct)=>throw new NotSupportedException("该 Provider 不支持任意 SQL 流式读取，请使用整表分页导出。");

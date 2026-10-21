@@ -52,22 +52,42 @@ public sealed partial class RelationalProvider(ConnectionProfile profile) : IDbP
     };
     public string Qualified(DbObject table) => profile.Kind == DatabaseKind.MySQL
         ? $"{Quote(table.Database)}.{Quote(table.Name)}" : string.IsNullOrEmpty(table.Schema) ? Quote(table.Name) : $"{Quote(table.Schema)}.{Quote(table.Name)}";
-    public string PageSql(DbObject table, string filter, int page, int size)
+    public string PageSql(DbObject table, string filter, int page, int size)=>PageSql(table,"*",filter,page,size);
+    private string PageSql(DbObject table,string select,string filter,int page,int size)
     {
         if (page < 0 || size is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(size));
         var target=profile.Kind==DatabaseKind.MySQL&&profile.Database==table.Database?Quote(table.Name):Qualified(table);
-        var sql = $"SELECT * FROM {target}" + (string.IsNullOrWhiteSpace(filter) ? "" : " WHERE " + filter);
+        var sql = $"SELECT {select} FROM {target}" + (string.IsNullOrWhiteSpace(filter) ? "" : " WHERE " + filter);
         return profile.Kind switch {
             DatabaseKind.MySQL => $"{sql} LIMIT {size} OFFSET {(long)page * size};",
             DatabaseKind.PostgreSQL => $"{sql} OFFSET {(long)page * size} ROWS FETCH NEXT {size} ROWS ONLY;",
             _ => $"{sql} ORDER BY (SELECT NULL) OFFSET {(long)page * size} ROWS FETCH NEXT {size} ROWS ONLY;" };
     }
-    public async Task<QueryResult> QueryAsync(string sql, int limit, CancellationToken ct)
+    public BrowseQuery BuildBrowse(DbObject table,IReadOnlyList<ColumnInfo> columns,string filter,int page,int size)
+    {
+        var previews=LargeColumns.PreviewIndexes(columns,profile.Kind);
+        if(previews.Count==0)return new(PageSql(table,filter,page,size),previews);
+        var previewSet=previews.ToHashSet();
+        var select=string.Join(", ",columns.Select((column,index)=>previewSet.Contains(index)?PreviewExpression(column,LargeColumns.PreviewLength)+" AS "+Quote(column.Name):Quote(column.Name)));
+        return new(PageSql(table,select,filter,page,size),previews);
+    }
+    private string PreviewExpression(ColumnInfo column,int length)
+    {
+        var name=Quote(column.Name);var type=column.Type.ToLowerInvariant();
+        return profile.Kind switch{
+            DatabaseKind.MySQL=>$"LEFT({name}, {length})",
+            DatabaseKind.PostgreSQL=>type=="bytea"?$"SUBSTRING({name} FROM 1 FOR {length})":$"LEFT(CAST({name} AS TEXT), {length})",
+            _=>type.Contains("binary")||type.StartsWith("image")?$"SUBSTRING({name}, 1, {length})":$"LEFT(CONVERT(NVARCHAR(MAX), {name}), {length})"
+        };
+    }
+    public Task<QueryResult> QueryAsync(string sql, int limit, CancellationToken ct)=>RunQueryAsync(sql,[],limit,ct);
+    private async Task<QueryResult> RunQueryAsync(string sql,IReadOnlyList<(string Name,object? Value)> parameters,int limit,CancellationToken ct)
     {
         var conn = await OpenAsync(ct);
         try
         {
             await using var cmd = conn.CreateCommand(); cmd.CommandText = sql; cmd.CommandTimeout = 0;
+            foreach(var (name,value) in parameters){var parameter=cmd.CreateParameter();parameter.ParameterName=name;parameter.Value=value??DBNull.Value;cmd.Parameters.Add(parameter);}
             await using var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SequentialAccess, ct);
             var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToArray();
             var types = Enumerable.Range(0, reader.FieldCount).Select(reader.GetFieldType).ToArray();
@@ -90,6 +110,17 @@ public sealed partial class RelationalProvider(ConnectionProfile profile) : IDbP
             if (stale is not null) { try { await stale.DisposeAsync(); } catch { } }
             throw new OperationCanceledException(ct);
         }
+    }
+    public async Task<object?[]> ReadValuesAsync(DbObject table,IReadOnlyList<ColumnInfo> columns,IReadOnlyList<ColumnInfo> keyColumns,IReadOnlyList<object?> keyValues,CancellationToken ct)
+    {
+        if(columns.Count==0)return [];
+        if(keyColumns.Count==0)throw new InvalidOperationException("该对象没有主键，无法按行读取完整内容。");
+        if(keyValues.Count!=keyColumns.Count)throw new ArgumentException("主键值数量与主键字段不一致。",nameof(keyValues));
+        var parameters=keyColumns.Select((column,index)=>("@k"+index,keyValues[index] is null or DBNull ? (object?)DBNull.Value : keyValues[index])).ToArray();
+        var sql=$"SELECT {string.Join(", ",columns.Select(column=>Quote(column.Name)))} FROM {Qualified(table)} WHERE {string.Join(" AND ",keyColumns.Select((column,index)=>Quote(column.Name)+" = @k"+index))}";
+        var result=await RunQueryAsync(sql,parameters,1,ct);
+        if(result.Rows.Count==0)throw new InvalidOperationException("该行已不存在或主键已变化，请刷新后重试。");
+        return result.Rows[0];
     }
     private async Task<QueryResult> Metadata(string sql, CancellationToken ct, params (string, string)[] values)
     {

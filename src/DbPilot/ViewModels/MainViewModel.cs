@@ -117,7 +117,7 @@ public sealed partial class MainViewModel : Observable
         if(sql is not null) tab.Sql=sql;if(table is not null)tab.SavedSql=tab.Sql; Tabs.Add(tab); Tab=tab;
     }
     public void SelectTab(QueryTab? tab) { Tab=tab; if(tab?.Connection is not null) Connection=Connections.FirstOrDefault(c=>c.Id==tab.Connection.Id); ResultChanged?.Invoke(tab?.Result); }
-    public async Task ExecuteAsync(string sql,int limit=500,bool tableBrowse=false) => await Guard(async ct =>
+    public async Task ExecuteAsync(string sql,int limit=500,bool tableBrowse=false,IReadOnlyList<ColumnInfo>? browseColumns=null,IReadOnlyList<int>? previewColumns=null) => await Guard(async ct =>
     {
         var tab=Tab ?? throw new InvalidOperationException("请新建查询。");
         LastScriptErrorLine=null;
@@ -129,7 +129,7 @@ public sealed partial class MainViewModel : Observable
         Log($"正在执行 · {profile.Name}");
         QueryResult result;
         bool scriptFailed=false;
-        if(tableBrowse){result=await provider.QueryAsync(sql,limit,ct);tab.ResultSets=[result];}
+        if(tableBrowse){result=await provider.QueryAsync(sql,limit,ct);if(previewColumns is {Count:>0})result=result with{PreviewColumns=previewColumns};tab.ResultSets=[result];}
         else {
             using var reader=new StringReader(sql);
             var outcomes=await ScriptRunner.RunAsync(provider,reader,profile.Kind,Settings.ContinueOnScriptError,limit,null,ct);
@@ -138,8 +138,8 @@ public sealed partial class MainViewModel : Observable
             result=tab.ResultSets.LastOrDefault()??new QueryResult([],[],0,false);
         }
         tab.ResultIndex=Math.Max(0,tab.ResultSets.Count-1);tab.Result=result;tab.Edits=null;
-        if(tableBrowse){tab.SavedSql=sql;tab.BrowseSql=sql;tab.PageSize=limit;await PrepareEditsAsync(provider,tab,result,ct);}
-        else{tab.Table=null;tab.BrowseSql="";}
+        if(tableBrowse){tab.SavedSql=sql;tab.BrowseSql=sql;tab.PageSize=limit;tab.TableColumns=browseColumns;tab.PreviewColumns=previewColumns??[];await PrepareEditsAsync(provider,tab,result,browseColumns,ct);}
+        else{tab.Table=null;tab.BrowseSql="";tab.TableColumns=null;tab.PreviewColumns=null;}
         if (ReferenceEquals(Tab,tab)) ResultChanged?.Invoke(result);
         Log($"{(scriptFailed?"执行结束（存在失败批次）":"执行完成")} · {watch.ElapsedMilliseconds} ms · {tab.ResultSets.Count} 个结果 · {result.Rows.Count} 行 · 受影响 {Math.Max(0,result.Affected)} 行" + (result.Truncated ? $" · 显示上限 {limit} 行，请添加分页条件" : ""));
         if(scriptFailed)return;
@@ -171,25 +171,34 @@ public sealed partial class MainViewModel : Observable
         var existing=Tabs.FirstOrDefault(t=>t.Connection?.Id==profile.Id&&t.Connection.Database==profile.Database&&t.Table==node.Object);
         if(existing is not null){SelectTab(existing);Log("已切换到表浏览页 · "+node.Object);return;}
         await using var provider=_createProvider(profile);
-        var sql=provider.PageSql(node.Object,"",0,size); NewQuery(sql,profile,node.Object); await ExecuteAsync(sql,size,true);
+        IReadOnlyList<ColumnInfo> columns;BrowseQuery browse;
+        try{columns=await provider.ColumnsAsync(node.Object,CancellationToken.None);browse=provider.BuildBrowse(node.Object,columns,"",0,size);}
+        catch(Exception ex){Log("读取表结构失败："+ex.Message,"Error");return;}
+        NewQuery(browse.Sql,profile,node.Object);
+        Tab!.TableColumns=columns;Tab.PreviewColumns=browse.PreviewColumns;
+        await ExecuteAsync(browse.Sql,size,true,columns,browse.PreviewColumns);
     }
     public async Task BrowseAsync(string filter,int page,int size)
     {
         if(Busy){Log("已有任务运行，请等待或终止当前任务。");return;}
         if(Tab?.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain)){Log("请先提交或撤销未提交的数据改动；提交结果未知时请先核对数据库。");return;}
-        if(Tab?.Table is not {} table) { Log("请先双击表节点打开数据浏览。"); return; }
+        if(Tab?.Table is not {} table) { Log("请先单击表节点打开数据浏览。"); return; }
         if (filter.Contains(';') || filter.Contains("--") || filter.Contains("/*")) { Log("筛选条件仅接受单个 WHERE 表达式。"); return; }
         await using var provider=_createProvider(Tab.Connection!);
-        Tab.Page=Math.Max(0,page);Tab.Filter=filter;Tab.Sql=provider.PageSql(table,filter,Tab.Page,size); await ExecuteAsync(Tab.Sql,size,true);
+        Tab.Page=Math.Max(0,page);Tab.Filter=filter;
+        var columns=Tab.TableColumns;
+        var browse=columns is null ? new BrowseQuery(provider.PageSql(table,filter,Tab.Page,size),[]) : provider.BuildBrowse(table,columns,filter,Tab.Page,size);
+        Tab.Sql=browse.Sql;Tab.PreviewColumns=browse.PreviewColumns;
+        await ExecuteAsync(Tab.Sql,size,true,columns,browse.PreviewColumns);
     }
     private static void EnsureNoPendingEdits(QueryTab tab)
     {
         if(tab.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain))throw new InvalidOperationException("请先提交或撤销数据改动；提交结果未知时请先核对数据库并重新加载。");
     }
-    private async Task PrepareEditsAsync(IDbProvider provider,QueryTab tab,QueryResult result,CancellationToken ct)
+    private async Task PrepareEditsAsync(IDbProvider provider,QueryTab tab,QueryResult result,IReadOnlyList<ColumnInfo>? columns,CancellationToken ct)
     {
         if(provider is not IEditableDbProvider || tab.Table is not {Kind:"表"} table)return;
-        try{tab.Edits=new TableEditSession(result,await provider.ColumnsAsync(table,ct));}
+        try{tab.Edits=new TableEditSession(result,columns??await provider.ColumnsAsync(table,ct));}
         catch(OperationCanceledException){throw;}
         catch(Exception ex){Log("结果保持只读："+ex.Message);}
     }
@@ -207,8 +216,10 @@ public sealed partial class MainViewModel : Observable
         tab.Result=edits.AcceptCommitted();tab.Edits=null;
         if(ReferenceEquals(Tab,tab))ResultChanged?.Invoke(tab.Result);
         try{
-            var refreshed=await provider.QueryAsync(tab.BrowseSql,tab.PageSize,ct);tab.Result=refreshed;
-            await PrepareEditsAsync(provider,tab,refreshed,ct);
+            var refreshed=await provider.QueryAsync(tab.BrowseSql,tab.PageSize,ct);
+            if(tab.PreviewColumns is {Count:>0})refreshed=refreshed with{PreviewColumns=tab.PreviewColumns};
+            tab.Result=refreshed;
+            await PrepareEditsAsync(provider,tab,refreshed,tab.TableColumns,ct);
             if(ReferenceEquals(Tab,tab))ResultChanged?.Invoke(refreshed);
             Log($"事务提交成功 · {affected} 行变更 · 数据已刷新。");
         }catch(Exception ex){Log($"事务已提交成功（{affected} 行），刷新失败：{ex.Message}。请重新加载表，不要重复提交。");}

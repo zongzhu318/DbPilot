@@ -1,6 +1,7 @@
 using System.Data;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using DbPilot.Models;
 using DbPilot.Services;
 
 namespace DbPilot.Views;
@@ -10,14 +11,64 @@ public sealed partial class MainWindow
     private async void ViewCell(object? sender,RoutedEventArgs e)
     {
         if(!FlushGridEdits()||Results.SelectedItem is not ResultRow selected||Results.CurrentColumn is not {} column)return;
-        int index=Results.Columns.IndexOf(column);var value=selected[index];var tab=_vm.Tab;var session=tab?.Edits;
+        int index=Results.Columns.IndexOf(column);var tab=_vm.Tab;var session=tab?.Edits;
+        if(tab?.Result is not {} result || index<0 || index>=result.Columns.Count)return;
+        var value=selected[index];var raw=PreviewedRawValue(tab,selected,index);
         bool writable=!_vm.Busy&&session is {CommitUncertain:false}&&session.CanEditColumn(index);
-        var window=new Window{Title="字段详情 · "+tab?.Result?.Columns[index],Width=850,Height=600,WindowStartupLocation=WindowStartupLocation.CenterOwner};
+        bool previewed=tab.PreviewColumns?.Contains(index)==true;
+        var window=new Window{Title="字段详情 · "+result.Columns[index],Width=850,Height=600,WindowStartupLocation=WindowStartupLocation.CenterOwner};
         var grid=new Grid{RowDefinitions=new("*,Auto"),Margin=new Avalonia.Thickness(16)};
-        var text=new TextBox{Text=value is byte[] b?Convert.ToHexString(b):value is null or DBNull?"":Convert.ToString(value,System.Globalization.CultureInfo.InvariantCulture),AcceptsReturn=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,IsReadOnly=!writable,FontFamily=new("Consolas,monospace")};
+        var text=new TextBox{Text=DetailText(previewed?raw??value:value),AcceptsReturn=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,IsReadOnly=!writable,FontFamily=new("Consolas,monospace")};
         var footer=new StackPanel{Spacing=8,Margin=new Avalonia.Thickness(0,12,0,0)};Grid.SetRow(footer,1);var status=new TextBlock{Text=writable?"修改仅暂存到当前页，仍需提交变更。":"当前字段只读。",TextWrapping=Avalonia.Media.TextWrapping.Wrap};footer.Children.Add(status);
+        if(previewed){
+            var originals=OriginalValues(selected.Row);
+            if(selected.Row.RowState==DataRowState.Added)status.Text=$"新行尚未写入数据库，仅显示前 {LargeColumns.PreviewLength} 字符预览；提交并刷新后可查看完整内容。";
+            else if(raw is null or DBNull)status.Text="该字段为 NULL。";
+            else{
+                var reader=LargeValueReader.Create(tab,result,out var reason);
+                if(reader is null)status.Text="无法读取完整内容："+reason;
+                else if(reader.IsComplete(originals)){status.Text=$"该字段未超过 {LargeColumns.PreviewLength} 字符，已完整显示。";await reader.DisposeAsync();}
+                else if(reader.PositionOf(index)>=0){
+                    status.Text=$"当前仅显示前 {LargeColumns.PreviewLength} 字符预览，正在加载完整内容…";
+                    _=LoadFullValueAsync(reader,originals,index,text,status,window);
+                }else{status.Text="该字段不在大字段预览列中。";await reader.DisposeAsync();}
+            }
+        }
         if(writable){var save=new Button{Content="暂存修改"};save.Click+=(_,_)=>{try{if(!ReferenceEquals(tab,_vm.Tab)||session!.CommitUncertain||_vm.Busy)throw new InvalidOperationException("编辑会话已变化，请关闭后重新打开。");selected.Row[index]=Services.DataValues.ForColumn(text.Text??"",session.Columns[index],tab!.Connection!.Kind)??DBNull.Value;window.Close();}catch(Exception ex){status.Text=ex.Message;}};footer.Children.Add(save);}
         grid.Children.Add(text);grid.Children.Add(footer);window.Content=grid;await window.ShowDialog(this);
+    }
+    private object? PreviewedRawValue(QueryTab tab,ResultRow row,int index)
+    {
+        if(tab.Result is not {} result || _resultData is null)return row[index];
+        int rowIndex=_resultData.Rows.IndexOf(row.Row);
+        return rowIndex>=0 && rowIndex<result.Rows.Count && index<result.Rows[rowIndex].Length ? result.Rows[rowIndex][index] : row[index];
+    }
+    private static object?[] OriginalValues(DataRow row)
+    {
+        var values=new object?[row.Table.Columns.Count];
+        for(int i=0;i<values.Length;i++){
+            var value=row.RowState is DataRowState.Added or DataRowState.Detached ? row[i] : row[i,DataRowVersion.Original];
+            values[i]=value is DBNull?null:value;
+        }
+        return values;
+    }
+    private static string DetailText(object? value)=>value switch{null or DBNull=>"",byte[] bytes=>Convert.ToHexString(bytes),_=>Convert.ToString(value,System.Globalization.CultureInfo.InvariantCulture)??""};
+    private static string CopyText(object? value)=>value switch{null or DBNull=>"NULL",byte[] bytes=>Convert.ToHexString(bytes),_=>SqlTools.Display(value)};
+    private static async Task LoadFullValueAsync(LargeValueReader reader,object?[] rowValues,int index,TextBox text,TextBlock status,Window window)
+    {
+        using var cts=new CancellationTokenSource();
+        void Cancel(object? _,EventArgs __)=>cts.Cancel();
+        window.Closed+=Cancel;
+        try{
+            var values=await reader.ReadAsync(rowValues,cts.Token);
+            if(cts.IsCancellationRequested)return;
+            int position=reader.PositionOf(index);
+            if(position<0){status.Text="该字段不在大字段预览列中。";return;}
+            text.Text=DetailText(values[position]);
+            status.Text="完整内容已加载。当前字段只读。";
+        }catch(OperationCanceledException){}
+        catch(Exception ex){if(!cts.IsCancellationRequested)status.Text="完整内容加载失败，仍显示预览："+ex.Message;}
+        finally{window.Closed-=Cancel;await reader.DisposeAsync();}
     }
     private TableEditSession? _shownEdits;
     private void ObserveEditSession(TableEditSession? session)

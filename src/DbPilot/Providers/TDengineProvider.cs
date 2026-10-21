@@ -17,10 +17,19 @@ public sealed class TDengineProvider : IDbProvider
     }
     public string Quote(string name) => "`" + name.Replace("`", "``") + "`";
     public string Qualified(DbObject table) => $"{Quote(table.Database)}.{Quote(table.Name)}";
-    public string PageSql(DbObject table, string filter, int page, int size)
+    public string PageSql(DbObject table, string filter, int page, int size)=>PageSql(table,"*",filter,page,size);
+    private string PageSql(DbObject table,string select,string filter,int page,int size)
     {
         if (page < 0 || size is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(size));
-        return $"SELECT * FROM {(_profile.Database==table.Database?Quote(table.Name):Qualified(table))}" + (string.IsNullOrWhiteSpace(filter) ? "" : " WHERE " + filter) + $" LIMIT {size} OFFSET {(long)page * size};";
+        return $"SELECT {select} FROM {(_profile.Database==table.Database?Quote(table.Name):Qualified(table))}" + (string.IsNullOrWhiteSpace(filter) ? "" : " WHERE " + filter) + $" LIMIT {size} OFFSET {(long)page * size};";
+    }
+    public BrowseQuery BuildBrowse(DbObject table,IReadOnlyList<ColumnInfo> columns,string filter,int page,int size)
+    {
+        var previews=Services.LargeColumns.PreviewIndexes(columns,DatabaseKind.TDengine);
+        if(previews.Count==0)return new(PageSql(table,filter,page,size),previews);
+        var previewSet=previews.ToHashSet();
+        var select=string.Join(", ",columns.Select((column,index)=>previewSet.Contains(index)?$"SUBSTR({Quote(column.Name)}, 1, {Services.LargeColumns.PreviewLength}) AS {Quote(column.Name)}":Quote(column.Name)));
+        return new(PageSql(table,select,filter,page,size),previews);
     }
     public async Task TestAsync(CancellationToken ct) => await QueryAsync("SELECT SERVER_VERSION()", 1, ct);
     public async Task<QueryResult> QueryAsync(string sql, int limit, CancellationToken ct)

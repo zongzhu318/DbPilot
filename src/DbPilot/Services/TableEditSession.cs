@@ -27,7 +27,7 @@ public sealed class TableEditSession
         Data.RowChanged+=(_,_)=>Changed?.Invoke();Data.RowDeleted+=(_,_)=>Changed?.Invoke();
     }
     private static object? CloneValue(object? value)=>value is byte[] b ? b.ToArray() : value;
-    public bool CanEditColumn(int index)=>!Columns[index].IsGenerated && !_original.Rows.Any(r=>r[index] is Array) && !(_original.Types is {} types && types[index].IsArray);
+    public bool CanEditColumn(int index)=>!Columns[index].IsGenerated && !_original.Rows.Any(r=>r[index] is Array) && !(_original.Types is {} types && types[index].IsArray) && !(_original.PreviewColumns?.Contains(index)??false);
     public DataRow AddRow()
     {
         EnsureWritable();var row=Data.NewRow();Data.Rows.Add(row);return row;
@@ -47,6 +47,7 @@ public sealed class TableEditSession
     public IReadOnlyList<RowChange> GetChanges(bool validate=true)
     {
         if(validate)EnsureWritable();var changes=new List<RowChange>();
+        var previews=_original.PreviewColumns is {Count:>0} indexes ? indexes.Where(i=>i>=0&&i<Columns.Count).Select(i=>Columns[i].Name).ToHashSet(StringComparer.Ordinal) : null;
         foreach(DataRow row in Data.Rows){
             if(row.RowState is DataRowState.Unchanged or DataRowState.Detached)continue;
             var original=new Dictionary<string,object?>(StringComparer.Ordinal);var values=new Dictionary<string,object?>(StringComparer.Ordinal);
@@ -59,7 +60,7 @@ public sealed class TableEditSession
                 if(validate && row.RowState==DataRowState.Added && !include && !Columns[i].Nullable && !Columns[i].HasDefault && string.IsNullOrEmpty(Columns[i].Default))throw new InvalidOperationException($"新行缺少必填字段：{Columns[i].Name}");
             }
             if(row.RowState==DataRowState.Modified && values.Count==0)continue;
-            changes.Add(new(row.RowState switch{DataRowState.Added=>RowChangeKind.Insert,DataRowState.Deleted=>RowChangeKind.Delete,_=>RowChangeKind.Update},original,values));
+            changes.Add(new(row.RowState switch{DataRowState.Added=>RowChangeKind.Insert,DataRowState.Deleted=>RowChangeKind.Delete,_=>RowChangeKind.Update},original,values,row.RowState==DataRowState.Added?null:previews));
         }
         return changes;
     }
@@ -68,6 +69,6 @@ public sealed class TableEditSession
     {
         foreach(DataRow row in Data.Rows.Cast<DataRow>().Where(r=>r.RowState!=DataRowState.Deleted))row.EndEdit();
         var rows=Data.Rows.Cast<DataRow>().Where(r=>r.RowState!=DataRowState.Deleted).Select(r=>Enumerable.Range(0,Columns.Count).Select(i=>!CanEditColumn(i) && _snapshots.TryGetValue(r,out var original) ? CloneValue(original[i]) : r[i] is DBNull ? null : r[i]).ToArray()).ToArray();
-        Data.AcceptChanges();return new(_original.Columns,rows,0,_original.Truncated,_original.Types);
+        Data.AcceptChanges();return new(_original.Columns,rows,0,_original.Truncated,_original.Types,_original.PreviewColumns);
     }
 }

@@ -20,7 +20,7 @@ dotnet run --project tests/DbPilot.Checks/DbPilot.Checks.csproj
 ## 使用流程
 
 1. 点击“新建连接”，填写连接参数，测试后保存。支持 MySQL、PostgreSQL、SQL Server、TDengine。
-2. 双击左侧连接加载数据库，双击数据库加载对象，双击表或视图打开分页数据。可右键查看字段、索引及生成 SQL 模板。
+2. 双击左侧连接加载数据库，双击数据库加载对象，单击表或视图打开分页数据，点击节点箭头展开字段。可右键查看字段、索引及生成 SQL 模板。
 3. 在查询页编写 SQL；`Ctrl+Enter` 执行选中内容，无选中时执行全部内容；“终止”取消当前任务。
 4. `Ctrl+Space` 补全关键字和已加载对象名；表浏览页额外加载当前表字段，TDengine 包含标签字段。
 5. 表浏览支持 WHERE、20 / 50 / 100 / 500 行分页。“导出结果”导出当前结果的 CSV、JSON 或 SQL INSERT；“字段详情”查看和编辑大文本字段。
