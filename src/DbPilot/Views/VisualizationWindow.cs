@@ -15,20 +15,34 @@ public sealed class VisualizationWindow : Window
 {
     private readonly Canvas _canvas=new(){Background=Brushes.White};
     private readonly StringBuilder _svg=new();
-    private readonly StackPanel _toolbar=new(){Orientation=Orientation.Horizontal,Spacing=10,Margin=new(12)};
-    private readonly TextBlock _status=new(){Margin=new(12),TextWrapping=TextWrapping.Wrap};
+    private readonly StackPanel _toolbar=new(){Orientation=Orientation.Horizontal,Spacing=10};
+    private readonly TextBlock _status=DialogUi.Status();
+    private readonly TextBlock _heading=new(){Text="可视化",Classes={"dialogTitle"}};
+    private readonly TextBlock _subtitle=new(){Text="根据查询结果或表关系生成图表",Classes={"dialogSubtitle"}};
     private double _width=1000,_height=600;
     public VisualizationWindow()
     {
         Width=1100;Height=750;WindowStartupLocation=WindowStartupLocation.CenterOwner;
-        var root=new Grid{RowDefinitions=new("Auto,*,Auto")};var scroll=new ScrollViewer{Content=_canvas,HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Auto};Grid.SetRow(scroll,1);Grid.SetRow(_status,2);
+        Classes.Add("dialog");
         var save=new Button{Content="导出 SVG"};save.Click+=async(_,_)=>{try{
             var file=await StorageProvider.SaveFilePickerAsync(new(){Title="导出矢量图",SuggestedFileName="diagram.svg",DefaultExtension="svg"});if(file is null)return;
             var path=file.TryGetLocalPath()??throw new InvalidOperationException("请选择本地文件。");
             var text=$"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{N(_width)}\" height=\"{N(_height)}\" viewBox=\"0 0 {N(_width)} {N(_height)}\"><rect width=\"100%\" height=\"100%\" fill=\"white\"/>{_svg}</svg>";
             await AtomicFile.WriteAsync(path,s=>s.WriteAsync(Encoding.UTF8.GetBytes(text)).AsTask(),default);_status.Text="已导出 "+path;
         }catch(Exception ex){_status.Text=ex.Message;}};_toolbar.Children.Add(save);
-        root.Children.Add(_toolbar);root.Children.Add(scroll);root.Children.Add(_status);Content=root;
+        var toolbar=new Border{Padding=new Thickness(24,10),Child=_toolbar};
+        var scroll=new ScrollViewer{Content=_canvas,HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Auto};
+        var canvas=new Border{Classes={"flatPanel"},Padding=new Thickness(0),Margin=new Thickness(24,0,24,8),Background=Brushes.White,Child=scroll};
+        var body=new Grid{RowDefinitions=new RowDefinitions("Auto,*")};
+        body.Children.Add(toolbar);
+        Grid.SetRow(canvas,1);body.Children.Add(canvas);
+        var footer=DialogUi.Footer(_status,DialogUi.Secondary("关闭",Close,88));
+        var heading=new StackPanel{Spacing=4};heading.Children.Add(_heading);heading.Children.Add(_subtitle);
+        var root=new Grid{RowDefinitions=new RowDefinitions("Auto,*,Auto")};
+        root.Children.Add(new Border{Classes={"dialogHeader"},Child=heading});
+        Grid.SetRow(body,1);root.Children.Add(body);
+        Grid.SetRow(footer,2);root.Children.Add(footer);
+        Content=root;
     }
     private static string N(double n)=>n.ToString("0.###",CultureInfo.InvariantCulture);
     private void Clear(double width,double height){_width=width;_height=height;_canvas.Width=width;_canvas.Height=height;_canvas.Children.Clear();_svg.Clear();}
@@ -49,7 +63,8 @@ public sealed class VisualizationWindow : Window
     }
     public void ShowEr(IReadOnlyList<(DbObject Table,IReadOnlyList<ColumnInfo> Columns)> tables,IReadOnlyList<ForeignKeyInfo> keys)
     {
-        Title="ER 关系图 · 外键与字段";int rows=(tables.Count+2)/3;double cellHeight=tables.Count==0?100:tables.Max(t=>t.Columns.Count)*22+90;Clear(1140,Math.Max(500,rows*cellHeight+30));
+        Title="ER 关系图 · 外键与字段";_heading.Text="ER 关系图";_subtitle.Text="外键关系与字段结构";
+        int rows=(tables.Count+2)/3;double cellHeight=tables.Count==0?100:tables.Max(t=>t.Columns.Count)*22+90;Clear(1140,Math.Max(500,rows*cellHeight+30));
         var positions=new Dictionary<(string,string),Point>();
         for(int i=0;i<tables.Count;i++){double x=20+(i%3)*375,y=20+(i/3)*cellHeight;positions[(tables[i].Table.Schema,tables[i].Table.Name)]=new(x,y);}
         foreach(var key in keys){
@@ -68,9 +83,10 @@ public sealed class VisualizationWindow : Window
     }
     public void ShowChart(QueryResult result)
     {
-        Title="查询结果图表";var x=new ComboBox{ItemsSource=result.Columns,SelectedIndex=0,Width=180};var y=new ComboBox{ItemsSource=result.Columns,SelectedIndex=Math.Min(1,result.Columns.Count-1),Width=180};
-        _toolbar.Children.Add(new TextBlock{Text="X",VerticalAlignment=VerticalAlignment.Center});_toolbar.Children.Add(x);_toolbar.Children.Add(new TextBlock{Text="Y",VerticalAlignment=VerticalAlignment.Center});_toolbar.Children.Add(y);
-        var zoom=new Slider{Minimum=1,Maximum=5,Value=1,Width=130};_toolbar.Children.Add(new TextBlock{Text="横向缩放",VerticalAlignment=VerticalAlignment.Center});_toolbar.Children.Add(zoom);
+        Title="查询结果图表";_heading.Text="查询结果图表";_subtitle.Text="折线图 · 悬停数据点查看值";
+        var x=new ComboBox{ItemsSource=result.Columns,SelectedIndex=0,Width=160,MinHeight=26,FontSize=12};var y=new ComboBox{ItemsSource=result.Columns,SelectedIndex=Math.Min(1,result.Columns.Count-1),Width=160,MinHeight=26,FontSize=12};
+        _toolbar.Children.Add(new TextBlock{Text="X 轴",Classes={"hint"},FontSize=12,VerticalAlignment=VerticalAlignment.Center});_toolbar.Children.Add(x);_toolbar.Children.Add(new TextBlock{Text="Y 轴",Classes={"hint"},FontSize=12,VerticalAlignment=VerticalAlignment.Center});_toolbar.Children.Add(y);
+        var zoom=new Slider{Minimum=1,Maximum=5,Value=1,Width=120};_toolbar.Children.Add(new TextBlock{Text="横向缩放",Classes={"hint"},FontSize=12,VerticalAlignment=VerticalAlignment.Center});_toolbar.Children.Add(zoom);
         void Draw(){
             Clear(1000*zoom.Value,580);if(x.SelectedIndex<0||y.SelectedIndex<0)return;
             bool Number(object? v,out double n){n=0;return v is not null&&double.TryParse(Convert.ToString(v,CultureInfo.InvariantCulture),NumberStyles.Float,CultureInfo.InvariantCulture,out n)&&double.IsFinite(n);}

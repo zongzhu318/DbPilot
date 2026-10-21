@@ -52,7 +52,7 @@ internal static class DatabaseFeatureChecks
         check(nullableGrid.BeginEdit(),"NULL cell can enter editing without creating a display-string change");Dispatcher.UIThread.RunJobs();
         check(nullableGrid.CommitEdit(DataGridEditingUnit.Cell,true)&&nullableGrid.CommitEdit(DataGridEditingUnit.Row,true)&&vm.Tab.Edits.PendingCount==0&&vm.Tab.Edits.Data.Rows[0].IsNull(1),"leaving an untouched NULL cell preserves NULL and does not block SQL execution");
         sqlEditor.Text="SELECT 17;";
-        var execution=(Task)typeof(MainWindow).GetMethod("Run",flags)!.Invoke(window,null)!;
+        var execution=(Task)typeof(MainWindow).GetMethod("Run",flags)!.Invoke(window,[false])!;
         var deadline=DateTime.UtcNow.AddSeconds(5);
         while(!execution.IsCompleted&&DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
         check(execution.IsCompleted&&capturedSql.Any(sql=>sql.Contains("SELECT 17")),"execute button path sends editor SQL to the provider: "+vm.Status);
@@ -61,24 +61,29 @@ internal static class DatabaseFeatureChecks
         sqlEditor.Text="select 21;\nselect 22;";sqlEditor.Select(0,"select 21;".Length);
         sqlEditor.RaiseEvent(new ContextRequestedEventArgs{RoutedEvent=Control.ContextRequestedEvent});Dispatcher.UIThread.RunJobs();
         var executeMenu=window.FindControl<MenuItem>("ExecuteEditorSqlMenu")!;
+        var executeSelectionMenu=window.FindControl<MenuItem>("ExecuteSelectionEditorSqlMenu")!;
         var formatMenu=window.FindControl<MenuItem>("FormatEditorSqlMenu")!;
-        check(executeMenu.Header?.ToString()=="执行选中 SQL"&&executeMenu.IsEnabled,"SQL context menu offers execution for selected text: "+executeMenu.Header+" / "+executeMenu.IsEnabled+" / "+sqlEditor.SelectedText+" / "+vm.Status);
+        check(executeSelectionMenu.Header?.ToString()=="执行选中 SQL"&&executeSelectionMenu.IsEnabled&&executeMenu.IsEnabled,"SQL context menu offers separate execution modes for the whole script and selected text: "+executeSelectionMenu.IsEnabled+" / "+executeMenu.IsEnabled+" / "+sqlEditor.SelectedText+" / "+vm.Status);
         formatMenu.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         check(sqlEditor.Text=="SELECT 21;\nselect 22;"&&sqlEditor.SelectedText=="SELECT 21;","context formatting changes only selected SQL and retains selection");
         sqlEditor.Document.UndoStack.Undo();
         check(sqlEditor.Text=="select 21;\nselect 22;","selected SQL formatting can be undone");
         sqlEditor.Select(0,"select 21;".Length);sqlEditor.ContextMenu?.Close();
-        capturedSql.Clear();executeMenu.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        capturedSql.Clear();executeSelectionMenu.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         deadline=DateTime.UtcNow.AddSeconds(5);
         while(vm.Busy&&DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
         check(capturedSql.Count==1&&capturedSql[0].Contains("select 21")&&!capturedSql[0].Contains("22"),"context execute sends selected SQL only");
+        capturedSql.Clear();executeMenu.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        deadline=DateTime.UtcNow.AddSeconds(5);
+        while(vm.Busy&&DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
+        check(capturedSql.Count==2&&capturedSql.Any(sql=>sql.Contains("21"))&&capturedSql.Any(sql=>sql.Contains("22")),"context execute runs the whole script even when text is selected");
         sqlEditor.Select(0,0);capturedSql.Clear();
         window.FindControl<Button>("ExecuteSqlButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         deadline=DateTime.UtcNow.AddSeconds(5);
         while(vm.Busy&&DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
         check(capturedSql.Count==2&&capturedSql.Any(sql=>sql.Contains("22")),"execute button runs whole script when nothing is selected");
         sqlEditor.Text=" ";capturedSql.Clear();
-        execution=(Task)typeof(MainWindow).GetMethod("Run",flags)!.Invoke(window,null)!;
+        execution=(Task)typeof(MainWindow).GetMethod("Run",flags)!.Invoke(window,[false])!;
         check(execution.IsCompleted&&capturedSql.Count==0&&vm.Status.Contains("请输入")&&logs.IsExpanded,"empty SQL gives visible feedback instead of silently returning");
         logs.IsExpanded=false;
         factoryField.SetValue(vm,originalFactory);sqlEditor.Text=oldSql;

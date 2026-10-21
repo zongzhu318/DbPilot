@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using DbPilot.Models;
@@ -12,47 +13,60 @@ namespace DbPilot.Views;
 // Each operation owns its provider and cancellation token; no connection is shared with the editor.
 public sealed class DatabaseToolsWindow : Window
 {
-    private readonly ComboBox _source=new(){MinWidth=220},_target=new(){MinWidth=220},_tables=new(){MinWidth=220},_targetTables=new(){MinWidth=220};
-    private readonly TextBox _database=new(){Watermark="源数据库",MinWidth=150},_targetDatabase=new(){Watermark="目标数据库",MinWidth=150};
-    private readonly TextBox _preview=new(){AcceptsReturn=true,FontFamily=new("Consolas,monospace"),TextWrapping=Avalonia.Media.TextWrapping.NoWrap};
-    private readonly TextBlock _status=new(){Text="选择连接与数据库，然后加载对象。",TextWrapping=Avalonia.Media.TextWrapping.Wrap};
-    private readonly StackPanel _actions=new(){Orientation=Orientation.Horizontal,Spacing=7};
+    private readonly ComboBox _source=new(){MinWidth=190,MaxWidth=240},_target=new(){MinWidth=190,MaxWidth=240},_tables=new(){MinWidth=240,MaxWidth=300},_targetTables=new(){MinWidth=240,MaxWidth=300};
+    private readonly TextBox _database=new(){Watermark="源数据库",MinWidth=140},_targetDatabase=new(){Watermark="目标数据库",MinWidth=140};
+    private readonly TextBox _preview=new(){AcceptsReturn=true,FontFamily=new("Consolas,monospace"),TextWrapping=Avalonia.Media.TextWrapping.NoWrap,BorderThickness=new Thickness(1),Watermark="操作结果或生成的 SQL 会显示在这里…"};
+    private readonly TextBlock _status=DialogUi.Status();
     private readonly Action<string,ConnectionProfile> _openSql;
     private CancellationTokenSource? _operation;
     private bool _closing;
     public DatabaseToolsWindow(IEnumerable<ConnectionProfile> profiles,ConnectionProfile? selected,Action<string,ConnectionProfile> openSql)
     {
-        Title="数据库工具 · 导入导出 / 结构比较 / 数据迁移";Width=1150;Height=760;MinWidth=900;MinHeight=600;WindowStartupLocation=WindowStartupLocation.CenterOwner;
+        Title="数据库工具 · DbPilot";Width=1180;Height=790;MinWidth=940;MinHeight=640;WindowStartupLocation=WindowStartupLocation.CenterOwner;
+        Classes.Add("dialog");
+        _status.Text="选择连接与数据库，然后加载对象。";
         _openSql=openSql;var connections=profiles.ToArray();_source.ItemsSource=connections;_target.ItemsSource=connections;
         _source.SelectionChanged+=(_,_)=>{_database.Text=(_source.SelectedItem as ConnectionProfile)?.Database;_tables.ItemsSource=null;};
         _target.SelectionChanged+=(_,_)=>{_targetDatabase.Text=(_target.SelectedItem as ConnectionProfile)?.Database;_targetTables.ItemsSource=null;};
         _source.SelectedItem=selected??connections.FirstOrDefault();_target.SelectedItem=connections.FirstOrDefault();
-        var root=new Grid{RowDefinitions=new("Auto,Auto,Auto,*,Auto"),Margin=new(16)};
-        var sourceRow=Row(new TextBlock{Text="源",VerticalAlignment=VerticalAlignment.Center},_source,_database,Button("加载对象",()=>Load(false)),_tables);
-        var targetRow=Row(new TextBlock{Text="目标",VerticalAlignment=VerticalAlignment.Center},_target,_targetDatabase,Button("加载对象",()=>Load(true)),_targetTables);
-        Grid.SetRow(targetRow,1);sourceRow.Margin=new(0,0,0,8);targetRow.Margin=new(0,0,0,12);
-        var tabs=new TabControl();Grid.SetRow(tabs,2);
-        tabs.ItemsSource=new[]{
-            Tab("对象定义",Button("读取原始定义",Definition)),
-            Tab("对象设计",Button("打开字段与索引设计器",Design)),
-            Tab("查询构建",Button("选择字段、条件和排序",BuildQuery)),
-            Tab("ER 图",Button("读取当前数据库关系图",ErDiagram)),
-            Tab("TDengine",Button("检测版本与流 / 订阅元数据",TdMetadata)),
-            Tab("整表导出",Row(Button("CSV",()=>Export("csv")),Button("JSON",()=>Export("json")),new TextBlock{Text="导出所有行；取消时保留已有文件。",VerticalAlignment=VerticalAlignment.Center})),
-            Tab("CSV 导入",Row(Button("选择 CSV 并映射字段",Import),new TextBlock{Text="首行为字段名，\\N 表示 NULL；关系数据库整批事务提交。",VerticalAlignment=VerticalAlignment.Center})),
-            Tab("结构比较",Row(Button("比较源表 → 目标表",Compare),new TextBlock{Text="生成字段差异 SQL；请在编辑器中审阅后执行。",VerticalAlignment=VerticalAlignment.Center})),
-            Tab("数据迁移",Row(Button("迁移到已有目标表",Migrate),new TextBlock{Text="按同名可写字段追加；不清空目标表。",VerticalAlignment=VerticalAlignment.Center})),
-            Tab("逻辑备份",Button("备份当前数据库的基础表结构与数据",Backup)),
-            Tab("脚本恢复",Row(Button("执行 SQL 文件",Restore),new TextBlock{Text="按批次执行，遇错停止；已完成批次不会自动回滚。",VerticalAlignment=VerticalAlignment.Center}))
-        };
-        Grid.SetRow(_preview,3);_preview.Margin=new(0,12);var footer=new Grid{ColumnDefinitions=new("*,Auto")};footer.Children.Add(_status);Grid.SetColumn(_actions,1);footer.Children.Add(_actions);Grid.SetRow(footer,4);
-        _actions.Children.Add(Button("载入 SQL 编辑器",()=>{_openSql(_preview.Text??"",_previewProfile??Profile(false));return Task.CompletedTask;}));
-        var cancel=new Button{Content="取消任务"};cancel.Click+=(_,_)=>_operation?.Cancel();_actions.Children.Add(cancel);
-        root.Children.Add(sourceRow);root.Children.Add(targetRow);root.Children.Add(tabs);root.Children.Add(_preview);root.Children.Add(footer);Content=root;
+
+        var bandRows=new Grid{RowDefinitions=new("Auto,Auto")};
+        var sourceRow=Row(Label("源"),_source,_database,Button("加载对象",()=>Load(false)),_tables);
+        var targetRow=Row(Label("目标"),_target,_targetDatabase,Button("加载对象",()=>Load(true)),_targetTables);
+        targetRow.Margin=new Thickness(0,8,0,0);Grid.SetRow(targetRow,1);
+        bandRows.Children.Add(sourceRow);bandRows.Children.Add(targetRow);
+        var band=new Border{Classes={"flatPanel"},Child=bandRows};
+
+        var tabs=new TabControl{ItemsSource=new[]{
+            Tab("对象定义",Row(Button("读取原始定义",Definition),Hint("读取选中对象的原始定义，结果显示在下方预览区。"))),
+            Tab("对象设计",Row(Button("打开字段与索引设计器",Design),Hint("修改字段与索引后生成可审阅的 SQL。"))),
+            Tab("查询构建",Row(Button("选择字段、条件和排序",BuildQuery),Hint("按字段、条件与排序生成 SELECT 语句。"))),
+            Tab("ER 图",Row(Button("读取当前数据库关系图",ErDiagram),Hint("最多展示 100 张表；表较多时请按数据库拆分查看。"))),
+            Tab("TDengine",Row(Button("检测版本与流 / 订阅元数据",TdMetadata),Hint("检测服务器版本与流、主题、订阅元数据。"))),
+            Tab("整表导出",Row(Button("CSV",()=>Export("csv")),Button("JSON",()=>Export("json")),Hint("导出所有行；取消时保留已有文件。"))),
+            Tab("CSV 导入",Row(Button("选择 CSV 并映射字段",Import),Hint("首行为字段名，\\N 表示 NULL；关系数据库整批事务提交。"))),
+            Tab("结构比较",Row(Button("比较源表 → 目标表",Compare),Hint("生成字段差异 SQL；请在编辑器中审阅后执行。"))),
+            Tab("数据迁移",Row(Button("迁移到已有目标表",Migrate),Hint("按同名可写字段追加；不清空目标表。"))),
+            Tab("逻辑备份",Row(Button("备份当前数据库的基础表结构与数据",Backup),Hint("包含字段、主键、外键与表数据，不含视图、索引、触发器与权限。"))),
+            Tab("脚本恢复",Row(Button("执行 SQL 文件",Restore),Hint("按批次执行，遇错停止；已完成批次不会自动回滚。")))
+        }};
+        tabs.Margin=new Thickness(0,12,0,0);
+        _preview.Margin=new Thickness(0,12,0,0);
+
+        var body=new Grid{RowDefinitions=new("Auto,Auto,*"),Margin=new Thickness(24,16,24,16)};
+        body.Children.Add(band);
+        Grid.SetRow(tabs,1);body.Children.Add(tabs);
+        Grid.SetRow(_preview,2);body.Children.Add(_preview);
+
+        var load=DialogUi.Secondary("载入 SQL 编辑器",()=>{try{_openSql(_preview.Text??"",_previewProfile??Profile(false));}catch(Exception ex){_status.Text=ex.Message;}});
+        var cancel=DialogUi.Secondary("取消任务",()=>_operation?.Cancel());
+        Content=DialogUi.Shell("数据库工具","结构比较、数据迁移、导入导出与脚本恢复",body,DialogUi.Footer(_status,load,cancel));
         Closing+=(_,e)=>{if(_operation is not null){e.Cancel=true;_closing=true;_operation.Cancel();_status.Text="正在取消任务，请等待数据库释放资源…";}};
     }
+    private static TextBlock Label(string text)=>new(){Text=text,Classes={"fieldLabel"},Width=34};
+    private static TextBlock Hint(string text)=>new(){Text=text,Classes={"hint"},VerticalAlignment=VerticalAlignment.Center,MaxWidth=620};
     private static StackPanel Row(params Control[] controls){var row=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8};foreach(var c in controls)row.Children.Add(c);return row;}
-    private static TabItem Tab(string name,Control content)=>new(){Header=name,Content=content};
+    private static TabItem Tab(string name,Control content)=>new(){Header=name,Content=new Border{Padding=new Thickness(18,16),Child=content}};
     private Button Button(string text,Func<Task> action){var button=new Button{Content=text};button.Click+=async(_,_)=>{try{await action();}catch(Exception ex){_status.Text=ex.Message;}};return button;}
     private ConnectionProfile Profile(bool target)
     {
@@ -106,15 +120,20 @@ public sealed class DatabaseToolsWindow : Window
     }
     private async Task<(int Source,int Target)[]?> MapColumns(string[] header,ColumnInfo[] columns)
     {
-        var window=new Window{Title="CSV 字段映射 · 首行为标题",Width=650,Height=540,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var rows=new StackPanel{Spacing=10,Margin=new(16)};var pickers=new List<ComboBox>();
-        foreach(var name in header){var picker=new ComboBox{ItemsSource=new[]{"（跳过）"}.Concat(columns.Select(c=>c.Name)).ToArray(),SelectedIndex=Array.FindIndex(columns,c=>c.Name==name)+1,Width=270};pickers.Add(picker);rows.Children.Add(Row(new TextBlock{Text=name,Width=240,TextWrapping=Avalonia.Media.TextWrapping.Wrap},picker));}
-        var error=new TextBlock{TextWrapping=Avalonia.Media.TextWrapping.Wrap};rows.Children.Add(error);
-        var okay=new Button{Content="确认映射"};okay.Click+=(_,_)=>{
+        var dialog=DialogUi.Dialog("CSV 字段映射 · 首行为标题",700,600);
+        var rows=new StackPanel{Spacing=10};var pickers=new List<ComboBox>();
+        foreach(var name in header){var picker=new ComboBox{ItemsSource=new[]{"（跳过）"}.Concat(columns.Select(c=>c.Name)).ToArray(),SelectedIndex=Array.FindIndex(columns,c=>c.Name==name)+1,Width=270};pickers.Add(picker);rows.Children.Add(Row(new TextBlock{Text=name,Width=240,TextWrapping=Avalonia.Media.TextWrapping.Wrap,Classes={"fieldLabel"}},picker));}
+        rows.Margin=new Thickness(24,16,24,16);
+        var body=new ScrollViewer{Content=rows,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};
+        var error=DialogUi.Status();
+        var okay=DialogUi.Primary("确认映射",()=>{
             var mapping=pickers.Select((p,i)=>(Source:i,Target:p.SelectedIndex-1)).Where(m=>m.Target>=0).ToArray();
-            if(mapping.Length==0||mapping.Select(m=>m.Target).Distinct().Count()!=mapping.Length){error.Text="请选择至少一个字段，同一目标字段只能映射一次。";return;}
-            window.Close(mapping);
-        };rows.Children.Add(okay);window.Content=new ScrollViewer{Content=rows};return await window.ShowDialog<(int Source,int Target)[]?>(this);
+            if(mapping.Length==0||mapping.Select(m=>m.Target).Distinct().Count()!=mapping.Length){DialogUi.Error(error,"请选择至少一个字段，同一目标字段只能映射一次。");return;}
+            dialog.Close(mapping);
+        });
+        var cancel=DialogUi.Secondary("取消",()=>dialog.Close(null));
+        dialog.Content=DialogUi.Shell("CSV 字段映射","首行为标题；为每个源字段选择映射的目标字段。",body,DialogUi.Footer(error,cancel,okay));
+        return await dialog.ShowDialog<(int Source,int Target)[]?>(this);
     }
     private Task Compare()=>Run(async ct=>{
         var sourceProfile=Profile(false);var targetProfile=Profile(true);var sourceTable=Table(false);var targetTable=Table(true);
@@ -199,11 +218,5 @@ public sealed class DatabaseToolsWindow : Window
             await AtomicFile.WriteAsync(path,stream=>DataTransfer.BackupAsync(provider,profile,tables,stream,new UiProgress<TransferProgress>(p=>_status.Text=$"{p.Stage} · {p.Rows} 行"),ct),ct);_status.Text=$"已备份 {tables.Length} 张表。";
         });
     }
-    private Task<bool> Confirm(string text)
-    {
-        var window=new Window{Title="确认数据库操作",Width=540,SizeToContent=SizeToContent.Height,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var panel=new StackPanel{Margin=new(20),Spacing=18};panel.Children.Add(new TextBlock{Text=text,TextWrapping=Avalonia.Media.TextWrapping.Wrap});
-        var okay=new Button{Content="确认执行"};okay.Click+=(_,_)=>window.Close(true);var cancel=new Button{Content="取消"};cancel.Click+=(_,_)=>window.Close(false);
-        panel.Children.Add(Row(okay,cancel));window.Content=panel;return window.ShowDialog<bool>(this);
-    }
+    private Task<bool> Confirm(string text)=>DialogUi.ConfirmAsync(this,text,"确认执行","确认数据库操作");
 }

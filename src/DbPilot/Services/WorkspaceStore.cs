@@ -62,7 +62,11 @@ public sealed class WorkspaceStore
     public async Task<AppSettings> LoadSettingsAsync()
     {
         var path = Path.Combine(_folder,"settings.json");
-        return File.Exists(path) ? JsonSerializer.Deserialize<AppSettings>(await File.ReadAllTextAsync(path)) ?? new() : new();
+        if (!File.Exists(path)) return new();
+        var text = await File.ReadAllTextAsync(path);
+        var settings = JsonSerializer.Deserialize<AppSettings>(text) ?? new();
+        ShortcutCatalog.MigrateLegacy(settings,text);
+        return settings;
     }
     public Task SaveSettingsAsync(AppSettings settings) => AtomicWrite("settings.json",JsonSerializer.Serialize(settings,_json));
     public async Task<List<string>> LoadGroupsAsync()

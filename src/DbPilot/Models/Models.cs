@@ -47,8 +47,8 @@ public sealed record QueryHistoryEntry(DateTimeOffset ExecutedAt,Guid Connection
 }
 public sealed class QueryTab : Observable
 {
-    private string _sql = "-- 在这里编写 SQL，按 Ctrl+Enter 执行\nSELECT 1;";
-    private string _savedSql="-- 在这里编写 SQL，按 Ctrl+Enter 执行\nSELECT 1;";
+    private string _sql = "-- 在这里编写 SQL，按 Ctrl+R 或 ⌘R 执行\nSELECT 1;";
+    private string _savedSql="-- 在这里编写 SQL，按 Ctrl+R 或 ⌘R 执行\nSELECT 1;";
     public string SavedSql { get=>_savedSql; set{if(Set(ref _savedSql,value)){Changed(nameof(IsDirty));Changed(nameof(DisplayTitle));}} }
     public bool IsDirty => Sql != SavedSql;
     private string _title="查询";
@@ -111,8 +111,7 @@ public sealed class AppSettings
     public double Width { get; set; } = 1360;
     public double Height { get; set; } = 860;
     public string FontFamily { get; set; } = "Cascadia Code,Consolas,monospace";
-    public string ExecuteGesture { get; set; } = "Ctrl+Enter";
-    public string CompletionGesture { get; set; } = "Ctrl+Space";
+    public Dictionary<string,string> Shortcuts { get; set; } = new();
     public bool PersistLogs { get; set; } = true;
     public bool ContinueOnScriptError { get; set; }
     public double EditorRatio { get; set; } = 2.0/3;

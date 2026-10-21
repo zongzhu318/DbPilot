@@ -5,6 +5,7 @@ public sealed partial class MainWindow
 {
     internal void ExecuteMenuAction(string action)
     {
+        if(OwnedWindows.Any(window=>window.IsVisible))return;
         var args=new RoutedEventArgs();
         switch(action)
         {
@@ -17,6 +18,13 @@ public sealed partial class MainWindow
             case "NewQuery":NewQuery(this,args);break;
             case "OpenScript":OpenScript(this,args);break;
             case "SaveScript":SaveScript(this,args);break;
+            case "CloseTab":CloseTab(this,args);break;
+            case "RunSql":RunSql(this,args);break;
+            case "RunSelectionSql":RunSelectionSql(this,args);break;
+            case "StopSql":StopSql(this,args);break;
+            case "FormatSql":FormatSql(this,args);break;
+            case "ShowCompletionMenu":ShowCompletionMenu(this,args);break;
+            case "ExportResult":ExportResult(this,args);break;
             case "ShowHistory":ShowHistory(this,args);break;
             case "WorkspaceBackup":WorkspaceBackup(this,args);break;
             case "ToggleSidebar":ToggleSidebar(this,args);break;
@@ -24,6 +32,8 @@ public sealed partial class MainWindow
             case "ToggleLogs":ToggleLogs(this,args);break;
             case "ToggleFocusMode":ToggleFocusMode(this,args);break;
             case "ToggleTheme":ToggleTheme(this,args);break;
+            case "ShowCatalog":ShowCatalog(this,args);break;
+            case "RefreshCurrent":_=RefreshCurrent();break;
             case "CreateDatabase":CreateDatabase(this,args);break;
             case "CreateTable":CreateTable(this,args);break;
             case "ShowTemplates":ShowTemplates(this,args);break;

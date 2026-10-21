@@ -16,10 +16,10 @@ public sealed partial class MainWindow
         var value=selected[index];var raw=PreviewedRawValue(tab,selected,index);
         bool writable=!_vm.Busy&&session is {CommitUncertain:false}&&session.CanEditColumn(index);
         bool previewed=tab.PreviewColumns?.Contains(index)==true;
-        var window=new Window{Title="字段详情 · "+result.Columns[index],Width=850,Height=600,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var grid=new Grid{RowDefinitions=new("*,Auto"),Margin=new Avalonia.Thickness(16)};
+        var window=DialogUi.Dialog("字段详情 · "+result.Columns[index],880,620);
         var text=new TextBox{Text=DetailText(previewed?raw??value:value),AcceptsReturn=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,IsReadOnly=!writable,FontFamily=new("Consolas,monospace")};
-        var footer=new StackPanel{Spacing=8,Margin=new Avalonia.Thickness(0,12,0,0)};Grid.SetRow(footer,1);var status=new TextBlock{Text=writable?"修改仅暂存到当前页，仍需提交变更。":"当前字段只读。",TextWrapping=Avalonia.Media.TextWrapping.Wrap};footer.Children.Add(status);
+        var body=new Border{Padding=new Avalonia.Thickness(24,16),Child=text};
+        var status=DialogUi.Status();status.Text=writable?"修改仅暂存到当前页，仍需提交变更。":"当前字段只读。";
         if(previewed){
             var originals=OriginalValues(selected.Row);
             if(selected.Row.RowState==DataRowState.Added)status.Text=$"新行尚未写入数据库，仅显示前 {LargeColumns.PreviewLength} 字符预览；提交并刷新后可查看完整内容。";
@@ -34,8 +34,10 @@ public sealed partial class MainWindow
                 }else{status.Text="该字段不在大字段预览列中。";await reader.DisposeAsync();}
             }
         }
-        if(writable){var save=new Button{Content="暂存修改"};save.Click+=(_,_)=>{try{if(!ReferenceEquals(tab,_vm.Tab)||session!.CommitUncertain||_vm.Busy)throw new InvalidOperationException("编辑会话已变化，请关闭后重新打开。");selected.Row[index]=Services.DataValues.ForColumn(text.Text??"",session.Columns[index],tab!.Connection!.Kind)??DBNull.Value;window.Close();}catch(Exception ex){status.Text=ex.Message;}};footer.Children.Add(save);}
-        grid.Children.Add(text);grid.Children.Add(footer);window.Content=grid;await window.ShowDialog(this);
+        var buttons=new List<Control>{DialogUi.Secondary("关闭",()=>window.Close(),88)};
+        if(writable)buttons.Add(DialogUi.Primary("暂存修改",()=>{try{if(!ReferenceEquals(tab,_vm.Tab)||session!.CommitUncertain||_vm.Busy)throw new InvalidOperationException("编辑会话已变化，请关闭后重新打开。");selected.Row[index]=Services.DataValues.ForColumn(text.Text??"",session.Columns[index],tab!.Connection!.Kind)??DBNull.Value;window.Close();}catch(Exception ex){DialogUi.Error(status,ex.Message);}},88));
+        window.Content=DialogUi.Shell("字段详情",result.Columns[index],body,DialogUi.Footer(status,buttons.ToArray()));
+        await window.ShowDialog(this);
     }
     private object? PreviewedRawValue(QueryTab tab,ResultRow row,int index)
     {

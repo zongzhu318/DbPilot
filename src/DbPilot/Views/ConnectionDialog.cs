@@ -1,6 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Layout;
+using Avalonia.Controls.Primitives;
 using DbPilot.Models;
 using DbPilot.Providers;
 using DbPilot.ViewModels;
@@ -12,7 +12,7 @@ public sealed class ConnectionDialog : Window
     private readonly ComboBox _kind=new(){ItemsSource=Enum.GetValues<DatabaseKind>()};
     private readonly CheckBox _ssl=new(){Content="启用 SSL（验证服务器证书）"},_integrated=new(){Content="Windows 身份验证（仅 SQL Server）"};
     private readonly CheckBox _publicKey=new(){Content="允许获取 MySQL RSA 公钥（仅可信服务器）"};
-    private readonly TextBlock _message=new(){TextWrapping=Avalonia.Media.TextWrapping.Wrap};
+    private readonly TextBlock _message=DialogUi.Status();
     private readonly Guid _id;
     private readonly string _legacyGroup;
     private readonly CheckBox _ssh=new(){Content="通过 SSH 隧道连接"};
@@ -20,41 +20,67 @@ public sealed class ConnectionDialog : Window
     private CancellationTokenSource? _test;
     public ConnectionDialog(ConnectionProfile? original=null)
     {
-        Title=original is null ? "新建连接" : "编辑连接"; Width=580; Height=770; CanResize=false; WindowStartupLocation=WindowStartupLocation.CenterOwner;
+        var heading=original is null ? "新建连接" : "编辑连接";
+        Title=heading; Width=660; Height=780; MinWidth=620; MinHeight=640; CanResize=false; WindowStartupLocation=WindowStartupLocation.CenterOwner;
+        Classes.Add("dialog");
         var p=original ?? new ConnectionProfile(); _id=p.Id;_legacyGroup=p.Group;
         _name.Text=p.Name;_host.Text=p.Host;_port.Text=p.Port.ToString();_database.Text=p.Database;_username.Text=p.Username;_password.Text=p.Password;_timeout.Text=p.Timeout.ToString();_timezone.Text=p.Timezone;
         _kind.SelectedItem=p.Kind; _ssl.IsChecked=p.Ssl; _publicKey.IsChecked=p.AllowPublicKeyRetrieval; _integrated.IsChecked=p.IntegratedSecurity;
         _poolMin.Text=p.MinimumPoolSize.ToString();_poolMax.Text=p.MaximumPoolSize.ToString();_ssh.IsChecked=p.Ssh.Enabled;
         _sshHost.Text=p.Ssh.Host;_sshPort.Text=p.Ssh.Port.ToString();_sshUser.Text=p.Ssh.Username;_sshPassword.Text=p.Ssh.Password;_keyPath.Text=p.Ssh.PrivateKeyPath;_passphrase.Text=p.Ssh.Passphrase;_fingerprint.Text=p.Ssh.HostKeyFingerprint;
-        var panel=new StackPanel{Margin=new Thickness(26),Spacing=8};
-        panel.Children.Add(new TextBlock{Text="连接到数据库",FontSize=23,FontWeight=Avalonia.Media.FontWeight.SemiBold});
-        panel.Children.Add(new TextBlock{Text="配置服务器信息，测试后保存。TDengine 使用 taosAdapter REST。",FontSize=11,Opacity=0.6,TextWrapping=Avalonia.Media.TextWrapping.Wrap});
-        Add(panel,"连接名称",_name);Add(panel,"数据库类型",_kind);
-        Add(panel,"主机地址",_host);Add(panel,"端口",_port);Add(panel,"默认数据库",_database);Add(panel,"用户名",_username);Add(panel,"密码",_password);Add(panel,"连接超时（秒）",_timeout);Add(panel,"TDengine 时区",_timezone);
-        panel.Children.Add(_ssl);panel.Children.Add(_publicKey);panel.Children.Add(_integrated);Add(panel,"最小连接池",_poolMin);Add(panel,"最大连接池",_poolMax);
-        panel.Children.Add(_ssh);Add(panel,"SSH 主机",_sshHost);Add(panel,"SSH 端口",_sshPort);Add(panel,"SSH 用户名",_sshUser);Add(panel,"SSH 密码",_sshPassword);Add(panel,"私钥文件（优先使用）",_keyPath);Add(panel,"私钥口令",_passphrase);Add(panel,"SSH 指纹（SHA256:…）",_fingerprint);
-        panel.Children.Add(new TextBlock{Text="首次测试会显示 SSH 指纹，核对后填入。数据库主机填写从 SSH 服务器访问的地址。隧道连接不复用连接池。",TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontSize=11});panel.Children.Add(_message);
-        var actions=new StackPanel{Orientation=Orientation.Horizontal,Spacing=10,HorizontalAlignment=HorizontalAlignment.Right};
-        var test=new Button{Content="测试连接"};var save=new Button{Content="保存连接"};save.Classes.Add("primary");var cancel=new Button{Content="取消"};
+
+        var form=new StackPanel{Margin=new Thickness(24,18,24,8)};
+        form.Children.Add(Section("服务器"));
+        form.Children.Add(DialogUi.Field("连接名称",_name));
+        form.Children.Add(DialogUi.Field("数据库类型",_kind));
+        form.Children.Add(DialogUi.Field("主机地址",_host));
+        form.Children.Add(DialogUi.Field("端口",_port,controlWidth:120));
+        form.Children.Add(DialogUi.Field("默认数据库",_database));
+        form.Children.Add(DialogUi.Field("用户名",_username));
+        form.Children.Add(DialogUi.Field("密码",_password));
+
+        form.Children.Add(DialogUi.Divider());
+        form.Children.Add(Section("连接选项"));
+        form.Children.Add(DialogUi.Field("连接超时（秒）",_timeout,controlWidth:120));
+        form.Children.Add(DialogUi.Field("TDengine 时区",_timezone,controlWidth:260));
+        form.Children.Add(DialogUi.Option(_ssl));
+        form.Children.Add(DialogUi.Option(_publicKey));
+        form.Children.Add(DialogUi.Option(_integrated));
+        form.Children.Add(DialogUi.Field("最小连接池",_poolMin,controlWidth:120));
+        form.Children.Add(DialogUi.Field("最大连接池",_poolMax,controlWidth:120));
+
+        form.Children.Add(DialogUi.Divider());
+        form.Children.Add(Section("SSH 隧道"));
+        form.Children.Add(DialogUi.Option(_ssh));
+        form.Children.Add(DialogUi.Field("SSH 主机",_sshHost));
+        form.Children.Add(DialogUi.Field("SSH 端口",_sshPort,controlWidth:120));
+        form.Children.Add(DialogUi.Field("SSH 用户名",_sshUser));
+        form.Children.Add(DialogUi.Field("SSH 密码",_sshPassword));
+        form.Children.Add(DialogUi.Field("私钥文件（优先使用）",_keyPath));
+        form.Children.Add(DialogUi.Field("私钥口令",_passphrase));
+        form.Children.Add(DialogUi.Field("SSH 指纹（SHA256:…）",_fingerprint));
+        form.Children.Add(new TextBlock{Text="首次测试会显示 SSH 指纹，核对后填入。数据库主机填写从 SSH 服务器访问的地址。隧道连接不复用连接池。",Classes={"hint"},Margin=new Thickness(0,4,0,0)});
+
+        var body=new ScrollViewer{Content=form,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};
+        var test=new Button{Content="测试连接"};
         test.Click+=async (_,_)=> {
             try { var profile=Read(); test.IsEnabled=false; _test=new CancellationTokenSource(TimeSpan.FromSeconds(profile.Timeout));
-                await using var provider=DbProviderFactory.Create(profile); await provider.TestAsync(_test.Token); _message.Text="连接成功，可以保存。";
-            } catch(OperationCanceledException) { _message.Text="连接测试超时或已取消。"; }
-            catch(Exception ex) { _message.Text="连接失败："+ex.Message; }
+                await using var provider=DbProviderFactory.Create(profile); await provider.TestAsync(_test.Token); DialogUi.Info(_message,"连接成功，可以保存。");
+            } catch(OperationCanceledException) { DialogUi.Error(_message,"连接测试超时或已取消。"); }
+            catch(Exception ex) { DialogUi.Error(_message,"连接失败："+ex.Message); }
             finally { test.IsEnabled=true;_test?.Dispose();_test=null; }
         };
-        save.Click+=(_,_)=>{try { Close(Read()); }catch(Exception ex){_message.Text=ex.Message;}};
-        cancel.Click+=(_,_)=>Close();Closed+=(_,_)=>_test?.Cancel();
-        actions.Children.Add(test);actions.Children.Add(cancel);actions.Children.Add(save);panel.Children.Add(actions);
-        Content=new ScrollViewer{Content=panel};
+        var cancel=DialogUi.Secondary("取消",()=>Close());
+        var save=DialogUi.Primary("保存连接",()=>{try { Close(Read()); }catch(Exception ex){DialogUi.Error(_message,ex.Message);}});
+        Closed+=(_,_)=>_test?.Cancel();
+        Content=DialogUi.Shell(heading,"配置服务器信息，测试通过后保存；TDengine 使用 taosAdapter REST。",body,DialogUi.Footer(_message,test,cancel,save));
         _kind.SelectionChanged+=(_,_)=>{
             var kind=(DatabaseKind)_kind.SelectedItem!;
             _port.Text=(kind switch{DatabaseKind.MySQL=>3306,DatabaseKind.PostgreSQL=>5432,DatabaseKind.SqlServer=>1433,_=>6041}).ToString();
             _username.Text=kind switch{DatabaseKind.PostgreSQL=>"postgres",DatabaseKind.SqlServer=>"sa",_=>"root"};
         };
     }
-    private static void Add(StackPanel panel,string label,Control control)
-    {var row=new Grid{ColumnDefinitions=new ColumnDefinitions("185,*")};row.Children.Add(new TextBlock{Text=label,VerticalAlignment=VerticalAlignment.Center,FontSize=11});Grid.SetColumn(control,1);row.Children.Add(control);panel.Children.Add(row);}
+    private static TextBlock Section(string title)=>new(){Text=title,Classes={"sectionTitle"},Margin=new Thickness(0,0,0,12)};
     private ConnectionProfile Read()
     {
         if(string.IsNullOrWhiteSpace(_name.Text)||string.IsNullOrWhiteSpace(_host.Text)) throw new InvalidOperationException("请填写连接名称和主机地址。");

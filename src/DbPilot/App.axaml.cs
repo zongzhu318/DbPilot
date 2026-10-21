@@ -6,13 +6,17 @@ using DbPilot.Views;
 namespace DbPilot;
 public sealed partial class App : Application
 {
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        if(OperatingSystem.IsMacOS())ConfigureMacAppMenu();
+    }
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow();
-            ConfigureMacMenu(desktop.MainWindow);
+            ConfigureMacWindowMenu(desktop.MainWindow);
         }
         base.OnFrameworkInitializationCompleted();
     }

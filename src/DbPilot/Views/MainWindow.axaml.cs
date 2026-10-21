@@ -64,7 +64,7 @@ public sealed partial class MainWindow : Window
         QueryTabs.AddHandler(DragDrop.DropEvent,TabsDrop);
         var heartbeat=new Avalonia.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(60)};
         heartbeat.Tick+=async(_,_)=>await _vm.HeartbeatAsync();Closed+=(_,_)=>{heartbeat.Stop();_updates?.Dispose();};
-        Opened+=async (_,_)=>{await _vm.InitializeAsync();ApplySettings();UpdateWorkspaceState();heartbeat.Start();InitializeUpdates();};
+        Opened+=async (_,_)=>{await _vm.InitializeAsync();ApplySettings();UpdateWorkspaceState();heartbeat.Start();InitializeUpdates();if(OperatingSystem.IsMacOS())App.RefreshMacMenu(this);};
         Closing+=async (_,e)=>{
             if(_closingSaved)return;e.Cancel=true;_vm.Cancel();
             if(_vm.Busy){_vm.Log("正在取消当前任务，请等待完成后再关闭窗口。");return;}
@@ -88,7 +88,7 @@ public sealed partial class MainWindow : Window
         EditorWorkspaceGrid.RowDefinitions[4].Height=new GridLength(1,GridUnitType.Star);
         _expandedEditorHeight=EditorWorkspaceGrid.RowDefinitions[2].Height;_expandedResultsHeight=EditorWorkspaceGrid.RowDefinitions[4].Height;
         if(!EditorPane.IsVisible){EditorWorkspaceGrid.RowDefinitions[2].Height=new GridLength(0);EditorWorkspaceGrid.RowDefinitions[3].Height=new GridLength(0);}
-        try{KeyGesture.Parse(_vm.Settings.ExecuteGesture);KeyGesture.Parse(_vm.Settings.CompletionGesture);}catch{_vm.Settings.ExecuteGesture="Ctrl+Enter";_vm.Settings.CompletionGesture="Ctrl+Space";}
+        RefreshShortcuts();ApplyShortcutLabels();
         SqlEditor.Foreground=Avalonia.Media.Brush.Parse(_vm.Settings.Dark?"#F8F8F2":"#1E1E1E");
         SqlEditor.LineNumbersForeground=Avalonia.Media.Brush.Parse(_vm.Settings.Dark?"#6272A4":"#2B91AF");
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(_vm.Connection?.Kind??DatabaseKind.MySQL,_vm.Settings.Dark);
@@ -134,6 +134,7 @@ public sealed partial class MainWindow : Window
         CancelCompletion();_=RefreshDatabasePicker();
     }
     private async void RunSql(object? sender,RoutedEventArgs e)=>await Run();
+    private async void RunSelectionSql(object? sender,RoutedEventArgs e)=>await Run(selectionOnly:true);
     private async void ExplainSql(object? sender,RoutedEventArgs e)
     {
         var sql=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?SqlEditor.Text:SqlEditor.SelectedText;if(!string.IsNullOrWhiteSpace(sql)&&FlushGridEdits())await _vm.ExplainAsync(sql);
@@ -150,13 +151,14 @@ public sealed partial class MainWindow : Window
         if(_vm.Busy)return;
         await new DatabaseToolsWindow(_vm.Connections,_vm.Connection,(sql,profile)=>_vm.NewQuery(sql,profile)).ShowDialog(this);
     }
-    private async Task Run()
+    private async Task Run(bool selectionOnly=false)
     {
         CloseCatalog();
         if(!EditorPane.IsVisible)SetEditorVisible(true);
-        var sql=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?SqlEditor.Text:SqlEditor.SelectedText;
+        if(selectionOnly&&string.IsNullOrWhiteSpace(SqlEditor.SelectedText)){ReportSqlProblem("请先在编辑器中选中要执行的 SQL。");return;}
+        var sql=selectionOnly?SqlEditor.SelectedText:SqlEditor.Text;
         if(_vm.Busy){ReportSqlProblem("已有任务运行，请等待或终止当前任务。");return;}
-        if(string.IsNullOrWhiteSpace(sql)){ReportSqlProblem("请输入或选中要执行的 SQL。");return;}
+        if(string.IsNullOrWhiteSpace(sql)){ReportSqlProblem("请输入要执行的 SQL。");return;}
         var profile=_vm.CurrentProfile;
         if(profile is null){ReportSqlProblem("请先在上方选择连接，再执行 SQL。");return;}
         if(_vm.IsClosed(profile)){ReportSqlProblem("该连接已关闭，请先打开连接再执行 SQL。");return;}
@@ -166,23 +168,10 @@ public sealed partial class MainWindow : Window
         }
         if(_vm.Tab is null)_vm.NewQuery(SqlEditor.Text,profile);
         if(SqlTools.RequiresConfirmation(sql)&&!await Confirm("SQL 包含删除对象或结构的操作，可能永久删除数据。确定执行？","执行删除"))return;
-        int baseLine=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?0:SqlEditor.Document.GetLineByOffset(SqlEditor.SelectionStart).LineNumber-1;
+        int baseLine=selectionOnly?SqlEditor.Document.GetLineByOffset(SqlEditor.SelectionStart).LineNumber-1:0;
         await _vm.ExecuteAsync(sql);
         if(_vm.LastScriptErrorLine is not null||_vm.Status.StartsWith("操作失败：")){TaskLogPanel.IsVisible=true;TaskLogPanel.IsExpanded=true;}
         if(_vm.LastScriptErrorLine is {} line){line=Math.Clamp(line+baseLine,1,SqlEditor.Document.LineCount);SqlEditor.CaretOffset=SqlEditor.Document.GetLineByNumber(line).Offset;SqlEditor.ScrollToLine(line);}
-    }
-    private void WorkspaceKeyDown(object? sender,KeyEventArgs e)
-    {
-        if(e.Key==Key.F&&(e.KeyModifiers&(KeyModifiers.Control|KeyModifiers.Meta))!=0&&e.KeyModifiers.HasFlag(KeyModifiers.Shift)){e.Handled=true;ToggleFocusMode(sender,new RoutedEventArgs());return;}
-        if((e.KeyModifiers&(KeyModifiers.Control|KeyModifiers.Meta))==0 || (e.KeyModifiers&(KeyModifiers.Alt|KeyModifiers.Shift))!=0)return;
-        if(e.Key==Key.S){e.Handled=true;SaveScript(sender,new RoutedEventArgs());}
-        else if(e.Key==Key.N){e.Handled=true;NewQuery(sender,new RoutedEventArgs());}
-        else if(e.Key==Key.W){e.Handled=true;CloseTab(sender,new RoutedEventArgs());}
-    }
-    private async void EditorKeyDown(object? sender,KeyEventArgs e)
-    {
-        if(KeyGesture.Parse(_vm.Settings.ExecuteGesture).Matches(e)){e.Handled=true;await Run();return;}
-        if(KeyGesture.Parse(_vm.Settings.CompletionGesture).Matches(e)){e.Handled=true;await ShowCompletion();}
     }
     private void StopSql(object? sender,RoutedEventArgs e)=>_vm.Cancel();
     private void ToggleTheme(object? sender,RoutedEventArgs e){_vm.Settings.Dark=!_vm.Settings.Dark;ApplySettings();}
@@ -329,12 +318,15 @@ public sealed partial class MainWindow : Window
         await _vm.Guard(async ct=>{
             await using var provider=DbProviderFactory.Create(MainViewModel.CloneForDatabase(profile,obj.Database));
             var columns=await provider.ColumnsAsync(obj,ct);var indexes=await provider.IndexesAsync(obj,ct);
-            var grid=new DataGrid{ItemsSource=columns,AutoGenerateColumns=true,IsReadOnly=true,Margin=new Thickness(10)};
-            var indexGrid=new DataGrid{ItemsSource=indexes,AutoGenerateColumns=true,IsReadOnly=true,Margin=new Thickness(10)};
+            var grid=new DataGrid{ItemsSource=columns,AutoGenerateColumns=true,IsReadOnly=true};
+            var indexGrid=new DataGrid{ItemsSource=indexes,AutoGenerateColumns=true,IsReadOnly=true};
             var definition=SqlTools.FormatDdl(await provider.DefinitionAsync(obj,ct));
-            var ddl=new TextBox{Text=definition,IsReadOnly=true,AcceptsReturn=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontFamily="Cascadia Code,Consolas,monospace",Margin=new Thickness(10)};
+            var ddl=new TextBox{Text=definition,IsReadOnly=true,AcceptsReturn=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontFamily="Cascadia Code,Consolas,monospace"};
             var tabs=new TabControl{ItemsSource=new[]{new TabItem{Header="字段与标签",Content=grid},new TabItem{Header="索引",Content=indexGrid},new TabItem{Header="建表语句",Content=ddl}}};
-            await new Window{Title=$"表结构 · {obj}",Width=950,Height=550,Content=tabs,WindowStartupLocation=WindowStartupLocation.CenterOwner}.ShowDialog(this);
+            var window=DialogUi.Dialog("表结构 · "+obj,980,620);
+            var body=new Border{Padding=new Thickness(24,16),Child=tabs};
+            window.Content=DialogUi.Shell("表结构",obj.ToString(),body,DialogUi.Footer(null,DialogUi.Secondary("关闭",()=>window.Close(),88)));
+            await window.ShowDialog(this);
         });
     }
     private async void GenerateSelect(object? sender,RoutedEventArgs e)=>await Generate("select");
@@ -398,33 +390,27 @@ public sealed partial class MainWindow : Window
     }
     private Task<DbObject?> ChooseExportTarget(ConnectionProfile profile)
     {
-        var window=new Window{Title="SQL 导出目标表",Width=470,SizeToContent=SizeToContent.Height,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var panel=new StackPanel{Margin=new Thickness(20),Spacing=12};var name=new TextBox{Text=_vm.Tab?.Table?.Name??"exported_result",Watermark="目标表名"};var schema=new TextBox{Text=_vm.Tab?.Table?.Schema??(profile.Kind==DatabaseKind.PostgreSQL?"public":profile.Kind==DatabaseKind.SqlServer?"dbo":""),Watermark="Schema"};
-        panel.Children.Add(new TextBlock{Text="仅导出当前结果；请填写 INSERT 的目标表。自增与计算列需要在执行脚本前调整。",TextWrapping=Avalonia.Media.TextWrapping.Wrap});panel.Children.Add(schema);panel.Children.Add(name);
-        var okay=new Button{Content="导出"};okay.Click+=(_,_)=>{if(!string.IsNullOrWhiteSpace(name.Text))window.Close(new DbObject(profile.Database,schema.Text?.Trim()??"",name.Text.Trim(),"表"));};panel.Children.Add(okay);window.Content=panel;return window.ShowDialog<DbObject?>(this);
+        var window=DialogUi.Dialog("SQL 导出目标表",520);
+        window.SizeToContent=SizeToContent.Height;window.CanResize=false;
+        var name=new TextBox{Text=_vm.Tab?.Table?.Name??"exported_result",Watermark="目标表名"};var schema=new TextBox{Text=_vm.Tab?.Table?.Schema??(profile.Kind==DatabaseKind.PostgreSQL?"public":profile.Kind==DatabaseKind.SqlServer?"dbo":""),Watermark="Schema"};
+        var panel=new StackPanel();
+        panel.Children.Add(DialogUi.Field("Schema",schema));panel.Children.Add(DialogUi.Field("目标表名",name));
+        var cancel=DialogUi.Secondary("取消",()=>window.Close((DbObject?)null),88);
+        var export=DialogUi.Primary("导出",()=>{if(!string.IsNullOrWhiteSpace(name.Text))window.Close(new DbObject(profile.Database,schema.Text?.Trim()??"",name.Text.Trim(),"表"));},88);
+        var body=new Border{Padding=new Thickness(24,20),Child=panel};
+        window.Content=DialogUi.Shell("SQL 导出目标表","仅导出当前结果；请填写 INSERT 的目标表。自增与计算列需要在执行脚本前调整。",body,DialogUi.Footer(null,cancel,export));
+        return window.ShowDialog<DbObject?>(this);
     }
-    private async Task<bool> Confirm(string text,string action="确认")
-    {
-        var window=new Window{Title="确认操作",Width=450,Height=190,CanResize=false,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var panel=new StackPanel{Margin=new Thickness(22),Spacing=18};panel.Children.Add(new TextBlock{Text=text,TextWrapping=Avalonia.Media.TextWrapping.Wrap});
-        var buttons=new StackPanel{Orientation=Orientation.Horizontal,Spacing=10,HorizontalAlignment=HorizontalAlignment.Right};
-        var cancel=new Button{Content="取消"};var ok=new Button{Content=action};cancel.Click+=(_,_)=>window.Close(false);ok.Click+=(_,_)=>window.Close(true);buttons.Children.Add(cancel);buttons.Children.Add(ok);panel.Children.Add(buttons);window.Content=panel;return await window.ShowDialog<bool>(this);
-    }
+    private async Task<bool> Confirm(string text,string action="确认")=>await DialogUi.ConfirmAsync(this,text,action);
     private async void ShowSettings(object? sender,RoutedEventArgs e)
     {
-        var window=new Window{Title="编辑器设置",Width=560,Height=650,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var panel=new StackPanel{Margin=new Thickness(24),Spacing=18};
-        var size=new NumericUpDown{Minimum=10,Maximum=30,Value=(decimal)_vm.Settings.FontSize};var wrap=new CheckBox{Content="自动换行",IsChecked=_vm.Settings.WordWrap};var lines=new CheckBox{Content="显示行号",IsChecked=_vm.Settings.LineNumbers};
-        panel.Children.Add(new TextBlock{Text="编辑器字号"});panel.Children.Add(size);panel.Children.Add(wrap);panel.Children.Add(lines);
-        var font=new TextBox{Text=_vm.Settings.FontFamily};var execute=new TextBox{Text=_vm.Settings.ExecuteGesture};var completion=new TextBox{Text=_vm.Settings.CompletionGesture};var keepGoing=new CheckBox{Content="SQL 脚本批次失败后继续执行（此前批次不会回滚）",IsChecked=_vm.Settings.ContinueOnScriptError};var persistLogs=new CheckBox{Content="加密保存最近 500 条日志",IsChecked=_vm.Settings.PersistLogs};
-        panel.Children.Add(new TextBlock{Text="字体"});panel.Children.Add(font);panel.Children.Add(new TextBlock{Text="执行快捷键"});panel.Children.Add(execute);panel.Children.Add(new TextBlock{Text="补全快捷键"});panel.Children.Add(completion);panel.Children.Add(keepGoing);panel.Children.Add(persistLogs);var status=new TextBlock{TextWrapping=Avalonia.Media.TextWrapping.Wrap};
-        var save=new Button{Content="保存设置"};save.Click+=async(_,_)=>{try{
-            var run=KeyGesture.Parse(execute.Text??"");var complete=KeyGesture.Parse(completion.Text??"");if(run.Key==Key.None||complete.Key==Key.None||run.ToString()==complete.ToString())throw new ArgumentException("请设置两个不同的有效快捷键。");
-            if(string.IsNullOrWhiteSpace(font.Text))throw new ArgumentException("请填写字体。");
-            _vm.Settings.FontSize=(double)(size.Value??14);_vm.Settings.WordWrap=wrap.IsChecked==true;_vm.Settings.LineNumbers=lines.IsChecked==true;_vm.Settings.FontFamily=font.Text;_vm.Settings.ExecuteGesture=execute.Text!;_vm.Settings.CompletionGesture=completion.Text!;_vm.Settings.ContinueOnScriptError=keepGoing.IsChecked==true;
-            _vm.Settings.PersistLogs=persistLogs.IsChecked==true;if(!_vm.Settings.PersistLogs)await _vm.Store.SaveLogsAsync([]);
-            await _vm.Store.SaveSettingsAsync(_vm.Settings);ApplySettings();window.Close();
-        }catch(Exception ex){status.Text=ex.Message;}};panel.Children.Add(save);panel.Children.Add(status);window.Content=new ScrollViewer{Content=panel};await window.ShowDialog(this);
+        var window=new SettingsWindow(_vm.Settings,async()=>{
+            if(!_vm.Settings.PersistLogs)await _vm.Store.SaveLogsAsync([]);
+            await _vm.Store.SaveSettingsAsync(_vm.Settings);
+            ApplySettings();
+            if(OperatingSystem.IsMacOS())App.RefreshMacMenu(this);
+        });
+        await window.ShowDialog(this);
     }
     private static T? ItemAt<T>(object? source) where T:class
     {
@@ -456,17 +442,22 @@ public sealed partial class MainWindow : Window
     private static double Distance(Point a,Point b)=>Math.Abs(a.X-b.X)+Math.Abs(a.Y-b.Y);
     private async void ShowHistory(object? sender,RoutedEventArgs e)
     {
-        var window=new Window{Title="查询历史 · 最近 200 条成功查询",Width=900,Height=620,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var grid=new Grid{RowDefinitions=new RowDefinitions("Auto,2*,3*,Auto"),Margin=new Thickness(18)};
+        var window=DialogUi.Dialog("查询历史",960,660);
+        var grid=new Grid{RowDefinitions=new RowDefinitions("Auto,2*,3*")};
         var search=new TextBox{Watermark="搜索连接名称或 SQL…",Margin=new Thickness(0,0,0,10)};
-        var list=new ListBox{ItemsSource=_vm.History};Grid.SetRow(list,1);
-        var sql=new TextBox{AcceptsReturn=true,IsReadOnly=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontFamily=new Avalonia.Media.FontFamily("Consolas"),Margin=new Thickness(0,10)};Grid.SetRow(sql,2);
+        var list=new ListBox{ItemsSource=_vm.History,Classes={"flat"},Margin=new Thickness(0,0,0,12)};Grid.SetRow(list,1);
+        var preview=new StackPanel{Spacing=6};preview.Children.Add(new TextBlock{Text="SQL",Classes={"hint"}});
+        var sql=new TextBox{AcceptsReturn=true,IsReadOnly=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontFamily=new Avalonia.Media.FontFamily("Cascadia Code,Consolas,monospace"),MinHeight=240};preview.Children.Add(sql);Grid.SetRow(preview,2);
         list.SelectionChanged+=(_,_)=>sql.Text=(list.SelectedItem as QueryHistoryEntry)?.Sql??"";
+        if(_vm.History.Count>0){list.SelectedIndex=0;sql.Text=_vm.History[0].Sql;}
         search.TextChanged+=(_,_)=>list.ItemsSource=_vm.History.Where(h=>h.Sql.Contains(search.Text??"",StringComparison.OrdinalIgnoreCase)||h.ConnectionName.Contains(search.Text??"",StringComparison.OrdinalIgnoreCase)).ToArray();
-        var row=new StackPanel{Orientation=Orientation.Horizontal,Spacing=10};Grid.SetRow(row,3);
-        var open=new Button{Content="载入新查询页"};open.Click+=(_,_)=>{if(list.SelectedItem is QueryHistoryEntry h){var profile=_vm.Connections.FirstOrDefault(p=>p.Id==h.ConnectionId);if(profile is null){_vm.Log("原连接已删除，请重新配置连接后再载入。");return;}_vm.NewQuery(h.Sql,MainViewModel.CloneForDatabase(profile,h.Database));window.Close();}};
-        var clear=new Button{Content="清空历史"};clear.Click+=async (_,_)=>await _vm.Guard(async ct=>{await _vm.Store.SaveHistoryAsync([]);_vm.History.Clear();sql.Text="";list.ItemsSource=_vm.History;});
-        row.Children.Add(open);row.Children.Add(clear);grid.Children.Add(search);grid.Children.Add(list);grid.Children.Add(sql);grid.Children.Add(row);window.Content=grid;await window.ShowDialog(this);
+        var clear=DialogUi.Danger("清空历史",async()=>await _vm.Guard(async ct=>{await _vm.Store.SaveHistoryAsync([]);_vm.History.Clear();sql.Text="";list.ItemsSource=_vm.History;}));
+        var close=DialogUi.Secondary("关闭",()=>window.Close(),88);
+        var open=DialogUi.Primary("载入新查询页",()=>{if(list.SelectedItem is QueryHistoryEntry h){var profile=_vm.Connections.FirstOrDefault(p=>p.Id==h.ConnectionId);if(profile is null){_vm.Log("原连接已删除，请重新配置连接后再载入。");return;}_vm.NewQuery(h.Sql,MainViewModel.CloneForDatabase(profile,h.Database));window.Close();}},120);
+        var body=new Border{Padding=new Thickness(24,16),Child=grid};
+        grid.Children.Add(search);grid.Children.Add(list);grid.Children.Add(preview);
+        window.Content=DialogUi.Shell("查询历史","最近 200 条成功查询",body,DialogUi.Footer(clear,close,open));
+        await window.ShowDialog(this);
     }
     private async void ShowTemplates(object? sender,RoutedEventArgs e)
     {
@@ -482,17 +473,22 @@ public sealed partial class MainWindow : Window
         List<SqlTemplate> custom;
         try{custom=await _vm.Store.LoadTemplatesAsync();}catch(Exception ex){_vm.Log("模板读取失败："+ex.Message);return;}
         var builtin=templates.Keys.ToHashSet();foreach(var t in custom)if(!builtin.Contains(t.Name))templates[t.Name]=t.Sql;
-        var window=new Window{Title="SQL 模板",Width=760,Height=590,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-        var grid=new Grid{RowDefinitions=new RowDefinitions("Auto,*,Auto,Auto"),Margin=new Thickness(18)};
-        var picker=new ComboBox{ItemsSource=templates.Keys,HorizontalAlignment=HorizontalAlignment.Stretch};var text=new TextBox{AcceptsReturn=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontFamily=new Avalonia.Media.FontFamily("Consolas"),Margin=new Thickness(0,14)};Grid.SetRow(text,1);
+        var window=DialogUi.Dialog("SQL 模板",820,640);
+        var grid=new Grid{RowDefinitions=new RowDefinitions("Auto,*")};
+        var picker=new ComboBox{ItemsSource=templates.Keys,HorizontalAlignment=HorizontalAlignment.Stretch};var text=new TextBox{AcceptsReturn=true,TextWrapping=Avalonia.Media.TextWrapping.Wrap,FontFamily=new Avalonia.Media.FontFamily("Cascadia Code,Consolas,monospace"),Margin=new Thickness(0,12,0,0)};Grid.SetRow(text,1);
         picker.SelectionChanged+=(_,_)=>text.Text=templates[picker.SelectedItem!.ToString()!];picker.SelectedIndex=0;
-        var name=new TextBox{Watermark="自定义模板名称",Width=260};var save=new Button{Content="保存模板"};var delete=new Button{Content="删除自定义模板"};
-        var actions=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8};actions.Children.Add(name);actions.Children.Add(save);actions.Children.Add(delete);Grid.SetRow(actions,2);
-        var status=new TextBlock{TextWrapping=Avalonia.Media.TextWrapping.Wrap};
+        var name=new TextBox{Watermark="自定义模板名称",Width=260};var status=DialogUi.Status();
+        var save=DialogUi.Secondary("保存模板",async()=>{try{var key=name.Text?.Trim();if(string.IsNullOrEmpty(key)||builtin.Contains(key))throw new ArgumentException("请使用新的自定义名称，内置模板不能覆盖。");var item=new SqlTemplate(key,text.Text??"");var next=custom.Where(t=>t.Name!=key).Append(item).ToList();await _vm.Store.SaveTemplatesAsync(next);custom=next;templates[key]=item.Sql;picker.ItemsSource=templates.Keys.ToArray();picker.SelectedItem=key;DialogUi.Info(status,"自定义模板已加密保存。");}catch(Exception ex){DialogUi.Error(status,ex.Message);}});
+        var delete=DialogUi.Danger("删除自定义模板",async()=>{try{var key=picker.SelectedItem?.ToString();if(key is null||builtin.Contains(key))return;var next=custom.Where(t=>t.Name!=key).ToList();await _vm.Store.SaveTemplatesAsync(next);custom=next;templates.Remove(key);picker.ItemsSource=templates.Keys.ToArray();picker.SelectedIndex=0;DialogUi.Info(status,"自定义模板已删除。");}catch(Exception ex){DialogUi.Error(status,ex.Message);}});
+        var actions=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8};actions.Children.Add(name);actions.Children.Add(save);actions.Children.Add(delete);
+        var head=new StackPanel{Spacing=10};head.Children.Add(picker);head.Children.Add(actions);
+        void SyncDelete(){delete.IsEnabled=picker.SelectedItem is string key&&!builtin.Contains(key);}
         picker.SelectionChanged+=(_,_)=>name.Text=picker.SelectedItem?.ToString();
-        save.Click+=async(_,_)=>{try{var key=name.Text?.Trim();if(string.IsNullOrEmpty(key)||builtin.Contains(key))throw new ArgumentException("请使用新的自定义名称，内置模板不能覆盖。");var item=new SqlTemplate(key,text.Text??"");var next=custom.Where(t=>t.Name!=key).Append(item).ToList();await _vm.Store.SaveTemplatesAsync(next);custom=next;templates[key]=item.Sql;picker.ItemsSource=templates.Keys.ToArray();picker.SelectedItem=key;status.Text="自定义模板已加密保存。";}catch(Exception ex){status.Text=ex.Message;}};
-        delete.Click+=async(_,_)=>{try{var key=picker.SelectedItem?.ToString();if(key is null||builtin.Contains(key))return;var next=custom.Where(t=>t.Name!=key).ToList();await _vm.Store.SaveTemplatesAsync(next);custom=next;templates.Remove(key);picker.ItemsSource=templates.Keys.ToArray();picker.SelectedIndex=0;status.Text="自定义模板已删除。";}catch(Exception ex){status.Text=ex.Message;}};
-        var use=new Button{Content="在新查询页中打开"};use.Click+=(_,_)=>{_vm.NewQuery(text.Text);window.Close();};var footer=new StackPanel{Spacing=8};footer.Children.Add(use);footer.Children.Add(status);Grid.SetRow(footer,3);
-        grid.Children.Add(picker);grid.Children.Add(text);grid.Children.Add(actions);grid.Children.Add(footer);window.Content=grid;await window.ShowDialog(this);
+        picker.SelectionChanged+=(_,_)=>SyncDelete();SyncDelete();
+        var body=new Border{Padding=new Thickness(24,16),Child=grid};
+        grid.Children.Add(head);grid.Children.Add(text);
+        var open=DialogUi.Primary("在新查询页中打开",()=>{_vm.NewQuery(text.Text);window.Close();},120);
+        window.Content=DialogUi.Shell("SQL 模板","内置模板与加密保存的自定义模板",body,DialogUi.Footer(status,DialogUi.Secondary("关闭",()=>window.Close(),88),open));
+        await window.ShowDialog(this);
     }
 }

@@ -16,8 +16,8 @@ public sealed partial class MainWindow
     {
         if(DatabasePicker is null)return;var p=_vm.Connection;
         DatabasePicker.IsEnabled=p is not null&&!_vm.IsClosed(p)&&!_vm.Busy;
-        OpenConnectionButton.IsEnabled=p is not null&&!_vm.IsOpen(p)&&!_vm.Busy;
-        CloseConnectionButton.IsEnabled=p is not null&&_vm.IsOpen(p);
+        FileOpenConnection.IsEnabled=p is not null&&!_vm.IsOpen(p)&&!_vm.Busy;
+        FileCloseConnection.IsEnabled=p is not null&&_vm.IsOpen(p);
         ShowTablesButton.IsEnabled=p is not null&&!_vm.IsClosed(p)&&!_vm.Busy&&!string.IsNullOrWhiteSpace(_vm.CurrentProfile?.Database);
         if(p is not null&&_vm.IsClosed(p)){_databaseRequest?.Cancel();CancelCompletion();}
         if(Results is not null)UpdateEditControls();
@@ -68,9 +68,15 @@ public sealed partial class MainWindow
     {
         try{
             var profile=RequireContext(false);await using var provider=DbProviderFactory.Create(profile);
-            var dialog=new Window{Title="新建数据库 · "+profile.Name,Width=570,Height=340,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-            var name=new TextBox{Watermark="数据库名称"};var preview=new TextBox{IsReadOnly=true,AcceptsReturn=true,Height=85};var status=new TextBlock{TextWrapping=Avalonia.Media.TextWrapping.Wrap};var create=new Button{Content="创建",HorizontalAlignment=HorizontalAlignment.Right};
-            var panel=new StackPanel{Margin=new Thickness(20),Spacing=12};panel.Children.Add(new TextBlock{Text="数据库名称"});panel.Children.Add(name);panel.Children.Add(preview);panel.Children.Add(status);panel.Children.Add(create);dialog.Content=panel;
+            var dialog=DialogUi.Dialog("新建数据库 · "+profile.Name,600,400);dialog.CanResize=false;
+            var name=new TextBox{Watermark="数据库名称"};var preview=new TextBox{IsReadOnly=true,AcceptsReturn=true,Height=96,FontFamily=new Avalonia.Media.FontFamily("Consolas,monospace")};var status=DialogUi.Status();
+            var create=new Button{Content="创建",MinWidth=88};create.Classes.Add("primary");
+            var body=new StackPanel{Margin=new Thickness(24,20)};
+            body.Children.Add(new TextBlock{Text="将执行 CREATE DATABASE；名称不能为空。",Classes={"hint"},Margin=new Thickness(0,0,0,16)});
+            body.Children.Add(DialogUi.Field("数据库名称",name));
+            body.Children.Add(new TextBlock{Text="预览",Classes={"hint"},Margin=new Thickness(0,4,0,6)});
+            body.Children.Add(preview);
+            dialog.Content=DialogUi.Shell("新建数据库",profile.Name,body,DialogUi.Footer(status,DialogUi.Secondary("取消",()=>dialog.Close(),88),create));
             name.TextChanged+=(_,_)=>{try{preview.Text=DatabaseDdl.CreateDatabase(provider,profile.Kind,name.Text??"");status.Text="";}catch(Exception ex){preview.Text="";status.Text=ex.Message;}};
             create.Click+=async(_,_)=>{
                 try{var database=DatabaseDdl.Name(name.Text);var sql=DatabaseDdl.CreateDatabase(provider,profile.Kind,database);create.IsEnabled=false;
@@ -110,7 +116,11 @@ public sealed partial class MainWindow
             if(!FlushGridEdits())return;_vm.EnsureObjectHasNoDrafts(profile,table);
             if(profile.Kind==DatabaseKind.TDengine)throw new NotSupportedException("TDengine 当前不支持表重命名。");
             await using var provider=DbProviderFactory.Create(profile);
-            var dialog=new Window{Title="重命名表 · "+table.Name,Width=540,Height=240,WindowStartupLocation=WindowStartupLocation.CenterOwner};var name=new TextBox{Text=table.Name};var status=new TextBlock{TextWrapping=Avalonia.Media.TextWrapping.Wrap};var rename=new Button{Content="重命名"};var panel=new StackPanel{Margin=new Thickness(20),Spacing=12};panel.Children.Add(new TextBlock{Text="新表名（数据库："+table.Database+"）"});panel.Children.Add(name);panel.Children.Add(status);panel.Children.Add(rename);dialog.Content=panel;
+            var dialog=DialogUi.Dialog("重命名表 · "+table.Name,560,280);dialog.CanResize=false;
+            var name=new TextBox{Text=table.Name,Watermark="新表名"};var status=DialogUi.Status();var rename=new Button{Content="重命名",MinWidth=88};rename.Classes.Add("primary");
+            var subtitle=string.IsNullOrWhiteSpace(table.Schema)?table.Database+"."+table.Name:table.Database+"."+table.Schema+"."+table.Name;
+            var body=new StackPanel{Margin=new Thickness(24,20)};body.Children.Add(DialogUi.Field("新表名",name));
+            dialog.Content=DialogUi.Shell("重命名表",subtitle,body,DialogUi.Footer(status,DialogUi.Secondary("取消",()=>dialog.Close(),88),rename));
             rename.Click+=async(_,_)=>{try{_vm.EnsureObjectHasNoDrafts(profile,table);rename.IsEnabled=false;if(await _vm.ExecuteDdlAsync(profile,DatabaseDdl.RenameTable(provider,profile.Kind,table,name.Text??""))){_vm.InvalidateObject(profile,table);dialog.Close();await RefreshObjects(profile,table.Database);if(TableCatalogPanel.IsVisible)await ShowTableCatalog();}else status.Text=_vm.Status;}catch(Exception ex){status.Text=ex.Message;}finally{rename.IsEnabled=true;}};await dialog.ShowDialog(this);
         }catch(Exception ex){_vm.Log(ex.Message);}
     }

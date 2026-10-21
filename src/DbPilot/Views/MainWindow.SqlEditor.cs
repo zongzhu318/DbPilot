@@ -25,12 +25,15 @@ public sealed partial class MainWindow
     }
     private void UpdateSqlContextMenu()
     {
-            bool selected=!string.IsNullOrWhiteSpace(SqlEditor.SelectedText);
-            var sql=selected?SqlEditor.SelectedText:SqlEditor.Text;
-            ExecuteEditorSqlMenu.Header=selected?"执行选中 SQL":"执行 SQL";
-            FormatEditorSqlMenu.Header=selected?"格式化选中 SQL":"格式化 SQL";
-            ExecuteEditorSqlMenu.IsEnabled=!_vm.Busy&&!string.IsNullOrWhiteSpace(sql)&&_vm.CurrentProfile is {} p&&!_vm.IsClosed(p);
-            FormatEditorSqlMenu.IsEnabled=!string.IsNullOrWhiteSpace(sql);
+        bool hasText=!string.IsNullOrWhiteSpace(SqlEditor.Text);
+        bool hasSelection=!string.IsNullOrWhiteSpace(SqlEditor.SelectedText);
+        bool ready=!_vm.Busy&&hasText&&_vm.CurrentProfile is {} p&&!_vm.IsClosed(p);
+        ExecuteEditorSqlMenu.IsEnabled=ready;
+        ExecuteSelectionEditorSqlMenu.IsEnabled=ready&&hasSelection;
+        FormatEditorSqlMenu.IsEnabled=hasText;
+        ExecuteEditorSqlMenu.InputGesture=ShortcutGesture("query.execute");
+        ExecuteSelectionEditorSqlMenu.InputGesture=ShortcutGesture("query.executeSelection");
+        FormatEditorSqlMenu.InputGesture=ShortcutGesture("query.format");
     }
     private void ReportSqlProblem(string message)
     {

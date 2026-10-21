@@ -102,10 +102,55 @@
   <Border x:Name="AppTitleBar" Grid.Row="0" Classes="compactBar" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,3,0,0" Padding="8,2">
    <StackPanel Orientation="Horizontal" Spacing="6"><Image Source="/Assets/logo.png" Width="22" Height="22"/><TextBlock Text="DbPilot" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
     <Menu x:Name="AppMenuBar" Background="Transparent">
-     <MenuItem Header="文件"><MenuItem Header="新建连接" Click="NewConnection"/><MenuItem x:Name="OpenConnectionButton" Header="打开连接" Click="ConnectDatabase"/><MenuItem x:Name="CloseConnectionButton" Header="关闭连接" Click="DisconnectDatabase"/><Separator/><MenuItem Header="编辑连接" Click="EditConnection"/><MenuItem Header="复制连接" Click="CopyConnection"/><MenuItem Header="删除连接" Click="DeleteConnection"/><Separator/><MenuItem Header="新建查询" Click="NewQuery"/><MenuItem Header="打开脚本" Click="OpenScript"/><MenuItem Header="保存脚本（⌘/Ctrl+S）" Click="SaveScript"/><Separator/><MenuItem Header="查询历史" Click="ShowHistory"/><MenuItem Header="配置备份" Click="WorkspaceBackup"/></MenuItem>
-     <MenuItem Header="查看"><MenuItem Header="显示 / 隐藏侧栏" Click="ToggleSidebar"/><MenuItem Header="展开 / 收起 SQL 编辑器" Click="ToggleEditor"/><MenuItem Header="显示 / 隐藏日志" Click="ToggleLogs"/><MenuItem Header="专注模式（⌘/Ctrl+Shift+F）" Click="ToggleFocusMode"/><Separator/><MenuItem Header="切换主题" Click="ToggleTheme"/></MenuItem>
-     <MenuItem Header="工具"><MenuItem Header="新建数据库" Click="CreateDatabase"/><MenuItem Header="新建表" Click="CreateTable"/><Separator/><MenuItem Header="SQL 模板" Click="ShowTemplates"/><MenuItem Header="执行计划" Click="ExplainSql"/><MenuItem Header="图表" Click="OpenChart"/><MenuItem Header="数据库工具" Click="OpenDatabaseTools"/><Separator/><MenuItem Header="设置" Click="ShowSettings"/></MenuItem>
-     <MenuItem Header="帮助"><MenuItem Header="检查更新" Click="CheckForUpdates"/><MenuItem Header="关于 DbPilot" Click="ShowAbout"/></MenuItem>
+     <MenuItem Header="文件">
+      <MenuItem x:Name="FileNewConnection" Header="新建连接" Click="NewConnection"/>
+      <MenuItem x:Name="FileOpenConnection" Header="打开连接" Click="ConnectDatabase"/>
+      <MenuItem x:Name="FileCloseConnection" Header="关闭连接" Click="DisconnectDatabase"/>
+      <Separator/>
+      <MenuItem x:Name="FileEditConnection" Header="编辑连接" Click="EditConnection"/>
+      <MenuItem x:Name="FileCopyConnection" Header="复制连接" Click="CopyConnection"/>
+      <MenuItem x:Name="FileDeleteConnection" Header="删除连接" Click="DeleteConnection"/>
+      <Separator/>
+      <MenuItem x:Name="FileNewQuery" Header="新建查询" Click="NewQuery"/>
+      <MenuItem x:Name="FileOpenScript" Header="打开脚本" Click="OpenScript"/>
+      <MenuItem x:Name="FileSaveScript" Header="保存脚本" Click="SaveScript"/>
+      <Separator/>
+      <MenuItem x:Name="FileHistory" Header="查询历史" Click="ShowHistory"/>
+      <MenuItem x:Name="FileBackup" Header="配置备份" Click="WorkspaceBackup"/>
+     </MenuItem>
+     <MenuItem Header="查询">
+      <MenuItem x:Name="QueryRunMenuItem" Header="执行 SQL" Click="RunSql"/>
+      <MenuItem x:Name="QueryRunSelectionMenuItem" Header="执行选中 SQL" Click="RunSelectionSql"/>
+      <MenuItem x:Name="QueryStopMenuItem" Header="终止任务" Click="StopSql"/>
+      <Separator/>
+      <MenuItem x:Name="QueryFormatMenuItem" Header="格式化 SQL" Click="FormatSql"/>
+      <MenuItem x:Name="QueryCompletionMenuItem" Header="SQL 补全" Click="ShowCompletionMenu"/>
+      <Separator/>
+      <MenuItem x:Name="QueryExportMenuItem" Header="导出结果" Click="ExportResult"/>
+     </MenuItem>
+     <MenuItem Header="查看">
+      <MenuItem x:Name="ViewSidebarMenuItem" Header="显示 / 隐藏侧栏" Click="ToggleSidebar"/>
+      <MenuItem x:Name="ViewEditorMenuItem" Header="展开 / 收起 SQL 编辑器" Click="ToggleEditor"/>
+      <MenuItem x:Name="ViewLogsMenuItem" Header="显示 / 隐藏日志" Click="ToggleLogs"/>
+      <MenuItem x:Name="ViewFocusMenuItem" Header="专注模式" Click="ToggleFocusMode"/>
+      <Separator/>
+      <MenuItem x:Name="ViewThemeMenuItem" Header="切换主题" Click="ToggleTheme"/>
+     </MenuItem>
+     <MenuItem Header="工具">
+      <MenuItem x:Name="ToolsCreateDatabase" Header="新建数据库" Click="CreateDatabase"/>
+      <MenuItem x:Name="ToolsCreateTable" Header="新建表" Click="CreateTable"/>
+      <Separator/>
+      <MenuItem x:Name="ToolsTemplates" Header="SQL 模板" Click="ShowTemplates"/>
+      <MenuItem x:Name="ToolsExplain" Header="执行计划" Click="ExplainSql"/>
+      <MenuItem x:Name="ToolsChart" Header="图表" Click="OpenChart"/>
+      <MenuItem x:Name="ToolsDatabase" Header="数据库工具" Click="OpenDatabaseTools"/>
+      <Separator/>
+      <MenuItem x:Name="ToolsSettings" Header="设置" Click="ShowSettings"/>
+     </MenuItem>
+     <MenuItem Header="帮助">
+      <MenuItem x:Name="HelpUpdate" Header="检查更新" Click="CheckForUpdates"/>
+      <MenuItem x:Name="HelpAbout" Header="关于 DbPilot" Click="ShowAbout"/>
+     </MenuItem>
     </Menu>
    </StackPanel>
   </Border>
@@ -117,7 +162,7 @@
     <Button Classes="tool" x:Name="ShowTablesButton" Click="ShowCatalog" ToolTip.Tip="浏览当前数据库的表">
      <StackPanel Spacing="2"><Image Source="/Assets/Icons/file_cabinet.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="表列表"/></StackPanel>
     </Button>
-    <Button Classes="tool" Click="NewQuery" ToolTip.Tip="新建查询（⌘/Ctrl+N）">
+    <Button Classes="tool" x:Name="NewQueryButton" Click="NewQuery" ToolTip.Tip="新建查询">
      <StackPanel Spacing="2"><Image Source="/Assets/Icons/memo.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="新建查询"/></StackPanel>
     </Button>
     <Border Classes="toolSeparator"/>
@@ -130,14 +175,14 @@
     <Button Classes="tool" x:Name="FormatSqlButton" Click="FormatSql" ToolTip.Tip="格式化 SQL">
      <StackPanel Spacing="2"><Image Source="/Assets/Icons/magic_wand.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="格式化"/></StackPanel>
     </Button>
-    <Button Classes="tool" x:Name="SaveScriptButton" Click="SaveScript" ToolTip.Tip="保存 SQL（⌘/Ctrl+S）">
+    <Button Classes="tool" x:Name="SaveScriptButton" Click="SaveScript" ToolTip.Tip="保存 SQL">
      <StackPanel Spacing="2"><Image Source="/Assets/Icons/floppy_disk.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="保存 SQL"/></StackPanel>
     </Button>
     <Button Classes="tool" x:Name="ExportResultButton" Click="ExportResult" ToolTip.Tip="导出查询结果">
      <StackPanel Spacing="2"><Image Source="/Assets/Icons/outbox_tray.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="导出结果"/></StackPanel>
     </Button>
     <Border Classes="toolSeparator"/>
-    <Button Classes="tool" Click="ToggleSidebar" ToolTip.Tip="显示或隐藏连接侧栏">
+    <Button Classes="tool" x:Name="SidebarToggleButton" Click="ToggleSidebar" ToolTip.Tip="显示或隐藏连接侧栏">
      <StackPanel Spacing="2"><Image Source="/Assets/Icons/card_index_dividers.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="侧栏"/></StackPanel>
     </Button>
     <Button Classes="tool" x:Name="EditorToggleButton" Click="ToggleEditor" ToolTip.Tip="展开或收起 SQL 编辑器">
@@ -223,11 +268,11 @@
       <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
       <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayTitle}" VerticalAlignment="Center" ToolTip.Tip="{Binding ContextLabel}"/></DataTemplate></ListBox.ItemTemplate>
      </ListBox>
-     <Button Grid.Column="2" Content="关闭查询" ToolTip.Tip="关闭当前查询（⌘/Ctrl+W）" Click="CloseTab" FontSize="11" Padding="8,3" MinHeight="0" Height="28"/>
+     <Button Grid.Column="2" Content="关闭查询" ToolTip.Tip="关闭当前查询" Click="CloseTab" FontSize="11" Padding="8,3" MinHeight="0" Height="28"/>
     </Grid>
     <Border x:Name="EditorPane" Background="{DynamicResource PanelBackground}" CornerRadius="0" Grid.Row="2" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" Padding="2" Margin="0,3,0,0">
-     <edit:TextEditor x:Name="SqlEditor" ShowLineNumbers="True" FontFamily="Cascadia Code,Consolas,monospace" FontSize="14" Background="Transparent" KeyDown="EditorKeyDown">
-      <edit:TextEditor.ContextMenu><ContextMenu><MenuItem x:Name="ExecuteEditorSqlMenu" Header="执行 SQL" Click="RunSql"/><MenuItem x:Name="FormatEditorSqlMenu" Header="格式化 SQL" Click="FormatSql"/></ContextMenu></edit:TextEditor.ContextMenu>
+     <edit:TextEditor x:Name="SqlEditor" ShowLineNumbers="True" FontFamily="Cascadia Code,Consolas,monospace" FontSize="14" Background="Transparent">
+      <edit:TextEditor.ContextMenu><ContextMenu><MenuItem x:Name="ExecuteEditorSqlMenu" Header="执行 SQL" Click="RunSql"/><MenuItem x:Name="ExecuteSelectionEditorSqlMenu" Header="执行选中 SQL" Click="RunSelectionSql"/><MenuItem x:Name="FormatEditorSqlMenu" Header="格式化 SQL" Click="FormatSql"/></ContextMenu></edit:TextEditor.ContextMenu>
      </edit:TextEditor>
     </Border>
     <GridSplitter x:Name="EditorSplitter" Grid.Row="3" ResizeDirection="Rows" HorizontalAlignment="Stretch" Background="{DynamicResource WorkspaceBorder}"/>

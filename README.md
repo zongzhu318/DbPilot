@@ -21,7 +21,7 @@ dotnet run --project tests/DbPilot.Checks/DbPilot.Checks.csproj
 
 1. 点击“新建连接”，填写连接参数，测试后保存。支持 MySQL、PostgreSQL、SQL Server、TDengine。
 2. 双击左侧连接加载数据库，双击数据库加载对象，单击表或视图打开分页数据，点击节点箭头展开字段。可右键查看字段、索引及生成 SQL 模板。
-3. 在查询页编写 SQL；`Ctrl+Enter` 执行选中内容，无选中时执行全部内容；“终止”取消当前任务。
+3. 在查询页编写 SQL；`Ctrl+R`（macOS `⌘R`）执行全部内容，`Ctrl+Shift+R`（macOS `⇧⌘R`）只执行选中内容；“终止”取消当前任务。
 4. `Ctrl+Space` 补全关键字和已加载对象名；表浏览页额外加载当前表字段，TDengine 包含标签字段。
 5. 表浏览支持 WHERE、20 / 50 / 100 / 500 行分页。“导出结果”导出当前结果的 CSV、JSON 或 SQL INSERT；“字段详情”查看和编辑大文本字段。
 6. 拖动查询页可调整顺序；拖动连接到分组可移动归属；分组按钮可新建、重命名、删除分组。
@@ -29,11 +29,49 @@ dotnet run --project tests/DbPilot.Checks/DbPilot.Checks.csproj
 8. “数据库工具”选择源/目标连接及数据库并加载对象，可使用映射导入、整表导出、对象设计、结构比较、迁移、ER 图、查询构建、基础逻辑备份与恢复。结构比较 SQL 绑定目标连接，生成 SQL 在编辑器审阅后执行。
 9. “图表”从当前结果选择时间/数值列绘制折线图，可缩放、悬停和导出 SVG。“执行计划”读取 EXPLAIN / SHOWPLAN_TEXT。
 10. SSH 在连接设置填写，首次测试显示待核对指纹；通过可信渠道核对后填写 SHA256 指纹。“配置备份”使用独立口令导出可跨机器恢复的加密配置。
-11. “设置”可修改字体、快捷键和脚本出错策略。自定义模板及最近 500 条日志加密保存。
+11. “设置”可修改字体、编辑器选项、快捷键和脚本出错策略。“快捷键”页列出全部可配置命令，可点击组合键重新录入、清除或恢复默认。自定义模板及最近 500 条日志加密保存。
 
 CSV 首行为字段名，可重新映射或跳过字段；`\N` 代表 NULL，真实以反斜杠开头的字符串需再加一个反斜杠（本软件导出会自动处理）。关系型导入整批事务提交；TDengine 每批至多 200 行，成功批次无法回滚，中断时报告已确认行数与未知批次。
 
 基础逻辑备份包含字段/计算列、主键、外键和数据，不含索引、唯一/CHECK 约束、视图、触发器、用户、权限与分区存储，也不提供跨表一致性快照。恢复按批次执行，成功批次不会随后续错误自动回滚。MySQL 脚本保留原数据库名，恢复前请审阅。
+
+## 快捷键
+
+默认键位参照 Navicat，macOS 使用 Command 组合。全部命令均可在“设置 → 快捷键”中重新录入、清除或恢复默认；修改后的键位保存在 `settings.json`，同一组合不允许重复绑定。连接树、SQL 编辑器、数据表格和表浏览相关的命令只在对应区域有焦点时触发。
+
+| 操作 | Windows / Linux | macOS |
+| --- | --- | --- |
+| 新建连接 | Ctrl+Shift+N | ⇧⌘N |
+| 打开 / 关闭连接 | Ctrl+Shift+O / Ctrl+Shift+D | ⇧⌘O / ⇧⌘D |
+| 编辑 / 复制连接（连接树） | Ctrl+E / Ctrl+Shift+C | ⌘E / ⇧⌘C |
+| 新建数据库 / 新建表 | Ctrl+Alt+N / Ctrl+N | ⌥⌘N / ⌘N |
+| 新建查询 | Ctrl+Q | ⌘Y |
+| 打开 / 保存脚本 | Ctrl+O / Ctrl+S | ⌘O / ⌘S |
+| 关闭查询 | Ctrl+W | ⌘W |
+| 执行 SQL | Ctrl+R | ⌘R |
+| 执行选中 SQL（编辑器） | Ctrl+Shift+R | ⇧⌘R |
+| 终止任务 | Ctrl+T | ⌘T |
+| 格式化 SQL | Ctrl+Shift+F | ⇧⌘F |
+| SQL 补全（编辑器） | Ctrl+Space | Ctrl+Space |
+| 查询历史 / SQL 模板 | Ctrl+L / Ctrl+Alt+T | ⌘L / ⌥⌘T |
+| 执行计划 / 导出结果 | Ctrl+Shift+P / Ctrl+Shift+E | ⇧⌘P / ⇧⌘E |
+| 显示 / 隐藏侧栏 | F6 | F6 |
+| 展开 / 收起 SQL 编辑器 | Ctrl+Alt+E | ⌥⌘E |
+| 显示 / 隐藏日志 | Ctrl+Alt+L | ⌥⌘L |
+| 专注模式 / 切换主题 | F11 / Ctrl+Alt+D | F11 / ⌥⌘D |
+| 表列表 / 刷新 | F7 / F5 | F7 / F5 |
+| 下一个 / 上一个查询标签 | Ctrl+Tab / Ctrl+Shift+Tab | Ctrl+Tab / Ctrl+Shift+Tab |
+| 筛选条件（表浏览） | Ctrl+F | ⌘F |
+| 上一页 / 下一页（表浏览） | Ctrl+PageUp / Ctrl+PageDown | Ctrl+PageUp / Ctrl+PageDown |
+| 字段详情（表格） | Alt+Enter | Alt+Enter |
+| 复制行 / 新增行（表格） | Ctrl+D / Ctrl+Shift+A | ⌘D / ⇧⌘A |
+| 删除选中行（表格） | Ctrl+Delete | ⌘⌫ |
+| 设为 NULL（表格） | Ctrl+0 | ⌘0 |
+| 提交 / 撤销变更（表格） | Ctrl+Enter / Ctrl+Shift+Z | ⌘Enter / ⇧⌘Z |
+| 图表 / 数据库工具 | Ctrl+Alt+G / Ctrl+Alt+B | ⌥⌘G / ⌥⌘B |
+| 设置 | Ctrl+, | ⌘, |
+
+删除连接、配置备份、检查更新和“关于”默认不占用组合键，可在设置中自行绑定。旧版本保存的自定义 `ExecuteGesture` / `CompletionGesture` 会在首次读取设置时自动迁移到新键位表。
 
 ## 在线编辑与事务提交
 
