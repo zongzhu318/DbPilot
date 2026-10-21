@@ -87,13 +87,18 @@ Check(SqlRowLimit.Apply("SELECT 1",DatabaseKind.MySQL,0)=="SELECT 1","non-positi
 Check(SqlRowLimit.Apply(";WITH c AS (SELECT * FROM t) SELECT * FROM c",DatabaseKind.SqlServer,100).StartsWith(";WITH c")&&SqlRowLimit.Apply(";WITH c AS (SELECT * FROM t) SELECT * FROM c",DatabaseKind.SqlServer,100).EndsWith("FETCH NEXT 101 ROWS ONLY"),"leading semicolon before a CTE is still capped");
 var formatted=SqlTools.Format("select 'select from', \"from\", `select` from t -- select\nwhere x = 'it''s from';");
 var ddlFormatted=SqlTools.FormatDdl("CREATE TABLE t (id int, amount decimal(12,3), note varchar(80) DEFAULT 'a,b (value)');");
-Check(ddlFormatted.Contains("\n    id int,")&&ddlFormatted.Contains("decimal(12,3)")&&ddlFormatted.Contains("'a,b (value)'"),"DDL formatting separates columns and preserves nested types and literals");
+Check(ddlFormatted.Contains($"{Environment.NewLine}    id int,")&&ddlFormatted.Contains("decimal(12, 3)")&&ddlFormatted.Contains("'a,b (value)'"),"DDL formatting separates columns and preserves nested types and literals");
 foreach(var newline in new[]{"\n","\r\n","\r"}){
     var commentDdl=SqlTools.FormatDdl($"CREATE TABLE t (id int, -- keep comment{newline} name text);");
     Check(commentDdl.Contains($"-- keep comment{Environment.NewLine}    name text"),
         $"DDL formatting preserves line-comment boundaries for {JsonSerializer.Serialize(newline)} input");
 }
-Check(formatted.Contains("SELECT 'select from', \"from\", `select` FROM t -- select"),"formatter preserves literals, identifiers and comments");
+Check(formatted==string.Join(Environment.NewLine,["SELECT 'select from',","    \"from\",","    `select`","FROM t -- select","WHERE x = 'it''s from';"]),"formatter lays out clauses and preserves literals, identifiers and comments");
+Check(SqlTools.Format(formatted)==formatted,"formatter is idempotent");
+var layoutFormatted=SqlTools.Format("select a, b from t left join u on u.id = t.id where a between 1 and 5 and b = 2 order by a;");
+Check(layoutFormatted==string.Join(Environment.NewLine,["SELECT a,","    b","FROM t","LEFT JOIN u","    ON u.id = t.id","WHERE a BETWEEN 1 AND 5","    AND b = 2","ORDER BY a;"]),"formatter breaks lists, joins and conditions");
+Check(SqlTools.Format("select $tag$select from t$tag$ from t")==string.Join(Environment.NewLine,["SELECT $tag$select from t$tag$","FROM t"]),"formatter leaves dollar-quoted bodies untouched");
+Check(SqlTools.Format("DELIMITER //\nselect 1;\nDELIMITER ;")==string.Join(Environment.NewLine,["DELIMITER //","SELECT 1;","DELIMITER ;"]),"formatter keeps delimiter commands on their own line");
 Check(SqlTools.CsvCell("a,\"b\"\nc")=="\"a,\"\"b\"\"\nc\"","CSV handles quotes, commas and newlines");
 Check(SqlTools.Display(null)=="NULL","NULL rendering");
 Check(SqlTools.Display(new byte[]{0,255})=="0x00FF","binary preview");
@@ -191,6 +196,13 @@ mainVm.NewQuery();Dispatcher.UIThread.RunJobs();
 Check(window.FindControl<Border>("EditorPane")!.IsVisible&&window.FindControl<Grid>("ConnectionBar")!.IsVisible&&window.FindControl<Grid>("QueryBar")!.IsVisible&&!window.FindControl<Grid>("StartPanel")!.IsVisible,"creating a query reveals the editor and hides the empty workspace");
 Check(window.FindControl<TextEditor>("SqlEditor")!.Text.Contains("SELECT 1"),"new SQL tab populates editor");
 Check(window.FindControl<TextEditor>("SqlEditor")!.SyntaxHighlighting is not null,"SQL syntax highlighting is configured");
+var formatEditor=window.FindControl<TextEditor>("SqlEditor")!;
+formatEditor.Text="select id, name from items where id = 1";Dispatcher.UIThread.RunJobs();
+typeof(MainWindow).GetMethod("FormatSql",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(window,[null,new Avalonia.Interactivity.RoutedEventArgs()]);
+Dispatcher.UIThread.RunJobs();
+var formattedEditorSql=string.Join(Environment.NewLine,["SELECT id,","    name","FROM items","WHERE id = 1"]);
+Check(formatEditor.Text==formattedEditorSql,"format action rewrites the editor SQL");
+Check(mainVm.Tab?.Sql==formattedEditorSql,"format action updates the query tab text");
 Check(window.FindControl<DataGrid>("Results") is not null,"main window creates result grid");
 Check(window.FindControl<TreeView>("ObjectTree") is not null,"main window creates object tree");
 Check(!window.FindControl<Button>("CommitEditsButton")!.IsEnabled,"arbitrary SQL result has no enabled commit action");
