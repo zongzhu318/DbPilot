@@ -338,6 +338,7 @@ Check(shortcutBindings["view.sidebar"]=="F12","settings captures a new shortcut"
 settingsWindow.GetVisualDescendants().OfType<Button>().First(b=>b.Content?.ToString()=="保存设置").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));Dispatcher.UIThread.RunJobs();
 Check(settingsSaved&&settingsWindow.Saved&&!settingsWindow.IsVisible,"settings window saves through the provided callback");
 Check(settingsToSave.Shortcuts.Count==1&&settingsToSave.Shortcuts.GetValueOrDefault("view.sidebar")=="F12","settings persist only non-default shortcut overrides");
+ShortcutChecks.Run(window,mainVm,Check);
 retainedTab.Edits.Revert();foreach(var tab in mainVm.Tabs)tab.SavedSql=tab.Sql;window.Close();Dispatcher.UIThread.RunJobs();
 Console.WriteLine($"All {count} checks passed. Temporary test data: {folder}");
 
