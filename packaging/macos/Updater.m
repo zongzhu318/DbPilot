@@ -20,6 +20,17 @@ static CanShutdown canShutdown;
 @end
 static SPUStandardUpdaterController *controller;
 static DbPilotUpdaterDelegate *delegate;
+static NSTimer *raiseTimer;
+static void RaiseSparkleWindows(void) {
+    for (NSWindow *window in [NSApp windows]) {
+        if (!window.isVisible || window.isMiniaturized) continue;
+        NSString *name = NSStringFromClass([[window windowController] class]);
+        // Avalonia 主窗口会在弹窗出现后重新置前，把 Sparkle 的窗口压在后面，这里强制拉回前台
+        if ([name hasPrefix:@"SU"] || [name hasPrefix:@"SPU"]) {
+            [window makeKeyAndOrderFront:nil];
+        }
+    }
+}
 __attribute__((visibility("default"))) void dbpilot_updater_start(CanShutdown callback) {
     canShutdown = callback;
     delegate = [DbPilotUpdaterDelegate new];
@@ -27,4 +38,10 @@ __attribute__((visibility("default"))) void dbpilot_updater_start(CanShutdown ca
 }
 __attribute__((visibility("default"))) void dbpilot_updater_check(void) {
     [controller checkForUpdates:nil];
+    if (raiseTimer.isValid) [raiseTimer invalidate];
+    __block NSInteger ticks = 0;
+    raiseTimer = [NSTimer scheduledTimerWithTimeInterval:0.25 repeats:YES block:^(NSTimer *timer) {
+        if (++ticks > 80) { [timer invalidate]; return; }
+        RaiseSparkleWindows();
+    }];
 }
