@@ -138,7 +138,7 @@ public sealed partial class App
         var copyright=new TextBlock{Text=$"© {DateTime.Now.Year} DbPilot",FontSize=11,VerticalAlignment=VerticalAlignment.Center};
         copyright.Classes.Add("hint");
         var ok=DialogUi.Primary("好",()=>dialog.Close(),96);
-        ok.CornerRadius=new CornerRadius(8);ok.MinHeight=32;ok.FontSize=13;ok.FontWeight=FontWeight.Medium;
+        ok.MinHeight=32;ok.FontSize=13;ok.FontWeight=FontWeight.Medium;
         ok.HorizontalContentAlignment=HorizontalAlignment.Center;ok.VerticalContentAlignment=VerticalAlignment.Center;
 
         var root=new Grid{RowDefinitions=new RowDefinitions("Auto,Auto")};
