@@ -132,7 +132,7 @@ public sealed partial class MainViewModel : Observable
         if(tableBrowse){result=await provider.QueryAsync(sql,limit,ct);if(previewColumns is {Count:>0})result=result with{PreviewColumns=previewColumns};tab.ResultSets=[result];}
         else {
             using var reader=new StringReader(sql);
-            var outcomes=await ScriptRunner.RunAsync(provider,reader,profile.Kind,Settings.ContinueOnScriptError,limit,null,ct);
+            var outcomes=await ScriptRunner.RunAsync(provider,reader,profile.Kind,Settings.ContinueOnScriptError,limit,null,ct,capReadOnlyQueries:true);
             foreach(var outcome in outcomes)if(outcome.Error is {} error){LastScriptErrorLine??=outcome.Line;scriptFailed=true;Log($"批次 {outcome.Batch} · 第 {outcome.Line} 行：{error}","Error");}
             tab.ResultSets=outcomes.SelectMany(o=>o.Results).TakeLast(100).ToArray();
             result=tab.ResultSets.LastOrDefault()??new QueryResult([],[],0,false);
@@ -141,7 +141,7 @@ public sealed partial class MainViewModel : Observable
         if(tableBrowse){tab.SavedSql=sql;tab.BrowseSql=sql;tab.PageSize=limit;tab.TableColumns=browseColumns;tab.PreviewColumns=previewColumns??[];await PrepareEditsAsync(provider,tab,result,browseColumns,ct);}
         else{tab.Table=null;tab.BrowseSql="";tab.TableColumns=null;tab.PreviewColumns=null;}
         if (ReferenceEquals(Tab,tab)) ResultChanged?.Invoke(result);
-        Log($"{(scriptFailed?"执行结束（存在失败批次）":"执行完成")} · {watch.ElapsedMilliseconds} ms · {tab.ResultSets.Count} 个结果 · {result.Rows.Count} 行 · 受影响 {Math.Max(0,result.Affected)} 行" + (result.Truncated ? $" · 显示上限 {limit} 行，请添加分页条件" : ""));
+        Log($"{(scriptFailed?"执行结束（存在失败批次）":"执行完成")} · {watch.ElapsedMilliseconds} ms · {tab.ResultSets.Count} 个结果 · {result.Rows.Count} 行 · 受影响 {Math.Max(0,result.Affected)} 行" + (result.Truncated ? $" · 结果超过 {limit} 行，已截取前 {limit} 行（SQL 未改动）" : ""));
         if(scriptFailed)return;
         Connected(profile);
         History.Insert(0,new(DateTimeOffset.Now,profile.Id,profile.Name,sql,watch.ElapsedMilliseconds,result.Rows.Count,profile.Database));

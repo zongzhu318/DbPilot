@@ -58,6 +58,33 @@ foreach(var kind in Enum.GetValues<DatabaseKind>()){
     Check(invalid,kind+" rejects unbounded page size");
     Check(provider.Quote("a`\" ]").Length>6,kind+" quotes identifiers");
 }
+Check(SqlRowLimit.Apply("select * from huge_table",DatabaseKind.MySQL,500).EndsWith("LIMIT 501"),"MySQL execution cap appends LIMIT");
+Check(SqlRowLimit.Apply("SELECT * FROM t LIMIT 10",DatabaseKind.MySQL,500)=="SELECT * FROM t LIMIT 10","explicit MySQL LIMIT is preserved");
+Check(SqlRowLimit.Apply("SELECT * FROM t; -- note",DatabaseKind.MySQL,100)=="SELECT * FROM t LIMIT 101; -- note","cap is inserted before terminator and trailing comment");
+Check(SqlRowLimit.Apply("SELECT * FROM t -- note",DatabaseKind.MySQL,100)=="SELECT * FROM t LIMIT 101 -- note","cap is inserted before a trailing line comment");
+Check(SqlRowLimit.Apply("SELECT * FROM t /* note */",DatabaseKind.MySQL,100)=="SELECT * FROM t LIMIT 101 /* note */","cap is inserted before a trailing block comment");
+Check(SqlRowLimit.Apply("SELECT * FROM t FOR UPDATE",DatabaseKind.MySQL,100)=="SELECT * FROM t FOR UPDATE","locking select is left untouched");
+Check(SqlRowLimit.Apply("SELECT * FROM t INTO OUTFILE '/tmp/x'",DatabaseKind.MySQL,100)=="SELECT * FROM t INTO OUTFILE '/tmp/x'","INTO select is left untouched");
+Check(SqlRowLimit.Apply("UPDATE t SET a=1",DatabaseKind.MySQL,100)=="UPDATE t SET a=1","DML is left untouched");
+Check(SqlRowLimit.Apply("WITH c AS (SELECT * FROM t) SELECT * FROM c",DatabaseKind.PostgreSQL,100).EndsWith("LIMIT 101"),"PostgreSQL CTE select is capped");
+Check(SqlRowLimit.Apply("WITH c AS (SELECT * FROM t) DELETE FROM c",DatabaseKind.PostgreSQL,100).EndsWith("DELETE FROM c"),"PostgreSQL CTE delete is left untouched");
+Check(SqlRowLimit.Apply("SELECT * FROM t FOR UPDATE",DatabaseKind.PostgreSQL,100)=="SELECT * FROM t FOR UPDATE","PostgreSQL locking select is left untouched");
+Check(SqlRowLimit.Apply("SELECT * FROM t OFFSET 10",DatabaseKind.PostgreSQL,100)=="SELECT * FROM t OFFSET 10","explicit PostgreSQL OFFSET is preserved");
+Check(SqlRowLimit.Apply("SELECT * FROM huge_table",DatabaseKind.SqlServer,500)=="SELECT * FROM huge_table ORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 501 ROWS ONLY","SQL Server cap adds FETCH with a stable order");
+Check(SqlRowLimit.Apply("SELECT * FROM huge_table ORDER BY id",DatabaseKind.SqlServer,500)=="SELECT * FROM huge_table ORDER BY id OFFSET 0 ROWS FETCH NEXT 501 ROWS ONLY","SQL Server cap preserves ORDER BY");
+Check(SqlRowLimit.Apply("SELECT TOP 10 * FROM t",DatabaseKind.SqlServer,500)=="SELECT TOP 10 * FROM t","existing SQL Server TOP is preserved");
+Check(SqlRowLimit.Apply("SELECT 1; SELECT 2",DatabaseKind.SqlServer,500)=="SELECT 1; SELECT 2","multi-statement SQL Server batch is left untouched");
+Check(SqlRowLimit.Apply("SELECT * FROM (SELECT * FROM t LIMIT 5) x",DatabaseKind.PostgreSQL,100).EndsWith("LIMIT 101"),"nested LIMIT does not block the outer cap");
+Check(SqlRowLimit.Apply("SELECT 'limit into order by for update' AS note FROM t",DatabaseKind.PostgreSQL,100).EndsWith("LIMIT 101"),"keywords inside literals do not block the cap");
+Check(SqlRowLimit.Apply("SELECT \"order\", \"limit\" FROM t",DatabaseKind.PostgreSQL,100).EndsWith("LIMIT 101"),"quoted identifiers do not block the cap");
+Check(SqlRowLimit.Apply("EXPLAIN SELECT * FROM t",DatabaseKind.PostgreSQL,100)=="EXPLAIN SELECT * FROM t","EXPLAIN is left untouched");
+Check(SqlRowLimit.Apply("SELECT * FROM t",DatabaseKind.TDengine,100).EndsWith("LIMIT 101"),"TDengine execution cap appends LIMIT");
+Check(SqlRowLimit.Apply("SELECT * FROM t WHERE s='it''s limit'",DatabaseKind.MySQL,100).EndsWith("LIMIT 101"),"escaped quotes keep the parser in sync");
+Check(SqlRowLimit.Apply("SELECT $tag$; limit $tag$ AS x",DatabaseKind.PostgreSQL,100).EndsWith("LIMIT 101"),"dollar-quoted body keeps the parser in sync");
+Check(SqlRowLimit.Apply("SELECT * FROM t;;",DatabaseKind.MySQL,100).EndsWith("LIMIT 101;;"),"trailing empty statements are preserved");
+Check(SqlRowLimit.Apply("SELECT 1--2",DatabaseKind.MySQL,100)=="SELECT 1--2 LIMIT 101","MySQL double dash without whitespace is not a comment");
+Check(SqlRowLimit.Apply("SELECT 1",DatabaseKind.MySQL,0)=="SELECT 1","non-positive cap is ignored");
+Check(SqlRowLimit.Apply(";WITH c AS (SELECT * FROM t) SELECT * FROM c",DatabaseKind.SqlServer,100).StartsWith(";WITH c")&&SqlRowLimit.Apply(";WITH c AS (SELECT * FROM t) SELECT * FROM c",DatabaseKind.SqlServer,100).EndsWith("FETCH NEXT 101 ROWS ONLY"),"leading semicolon before a CTE is still capped");
 var formatted=SqlTools.Format("select 'select from', \"from\", `select` from t -- select\nwhere x = 'it''s from';");
 var ddlFormatted=SqlTools.FormatDdl("CREATE TABLE t (id int, amount decimal(12,3), note varchar(80) DEFAULT 'a,b (value)');");
 Check(ddlFormatted.Contains("\n    id int,")&&ddlFormatted.Contains("decimal(12,3)")&&ddlFormatted.Contains("'a,b (value)'"),"DDL formatting separates columns and preserves nested types and literals");
@@ -132,6 +159,17 @@ await using(var td=new TDengineProvider(tdProfile,new StubHttpHandler((_,_)=>Tas
 }
 await using(var td=new TDengineProvider(tdProfile,new StubHttpHandler((_,_)=>Task.FromResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK){Content=new StringContent("{\"code\":123,\"desc\":\"syntax error\"}")})))){
     bool failed=false;try{await td.QueryAsync("bad SQL",1,CancellationToken.None);}catch(InvalidOperationException ex){failed=ex.Message.Contains("syntax error");}Check(failed,"TDengine surfaces server errors");
+}
+string executedSql="";var editorSql="SELECT * FROM meters";
+await using(var td=new TDengineProvider(tdProfile,new StubHttpHandler(async (request,ct)=>{
+    executedSql=await request.Content!.ReadAsStringAsync(ct);
+    return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK){Content=new StringContent("{\"code\":0,\"column_meta\":[[\"ts\",9,8]],\"data\":[[\"2026-01-01\"]]}")};
+}))){
+    var capped=await ScriptRunner.RunAsync(td,new StringReader(editorSql),DatabaseKind.TDengine,false,500,null,CancellationToken.None,capReadOnlyQueries:true);
+    Check(capped.Count==1&&capped[0].Error is null&&executedSql.Trim()=="SELECT * FROM meters LIMIT 501","query window execution applies the cap");
+    Check(editorSql=="SELECT * FROM meters","query window text is not rewritten");
+    await ScriptRunner.RunAsync(td,new StringReader(editorSql),DatabaseKind.TDengine,false,500,null,CancellationToken.None,capReadOnlyQueries:false);
+    Check(executedSql.Trim()=="SELECT * FROM meters","non-query scripts keep their statements untouched");
 }
 await using(var td=new TDengineProvider(tdProfile,new StubHttpHandler(async (_,ct)=>{await Task.Delay(Timeout.Infinite,ct);return new System.Net.Http.HttpResponseMessage();}))){
     using var cancel=new CancellationTokenSource(30);bool cancelled=false;try{await td.QueryAsync("SELECT 1",1,cancel.Token);}catch(OperationCanceledException){cancelled=true;}Check(cancelled,"TDengine query honors cancellation");

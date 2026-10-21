@@ -81,12 +81,12 @@ public sealed partial class SqlScript
 }
 public static class ScriptRunner
 {
-    public static async Task<IReadOnlyList<ScriptOutcome>> RunAsync(IDbProvider provider,TextReader reader,DatabaseKind kind,bool continueOnError,int limit,IProgress<TransferProgress>? progress,CancellationToken ct)
+    public static async Task<IReadOnlyList<ScriptOutcome>> RunAsync(IDbProvider provider,TextReader reader,DatabaseKind kind,bool continueOnError,int limit,IProgress<TransferProgress>? progress,CancellationToken ct,bool capReadOnlyQueries=false)
     {
         var outcomes=new List<ScriptOutcome>();int number=0;
         await foreach(var batch in SqlScript.ReadAsync(reader,kind,ct)){
             number++;ScriptOutcome outcome;
-            try{outcome=new(number,batch.Line,await provider.QueryMultipleAsync(batch.Sql,limit,ct),null);}
+            try{outcome=new(number,batch.Line,await provider.QueryMultipleAsync(capReadOnlyQueries?SqlRowLimit.Apply(batch.Sql,kind,limit):batch.Sql,limit,ct),null);}
             catch(OperationCanceledException){throw;}
             catch(Exception ex){outcome=new(number,batch.Line,[],ex.Message);}
             // Retain the first failure so later successful batches never hide an earlier error.
