@@ -34,6 +34,8 @@ app=pathlib.Path(os.environ['APP'])
 info=dict(CFBundleName='DbPilot',CFBundleDisplayName='DbPilot',CFBundleIdentifier='com.dbpilot.dbpilot',
  CFBundleExecutable='DbPilot',CFBundlePackageType='APPL',CFBundleVersion=os.environ['VERSION'],
  CFBundleShortVersionString=os.environ['VERSION'],LSMinimumSystemVersion='12.0',NSHighResolutionCapable=True,
+ # 声明中文本地化并允许框架独立选择语言，否则 Sparkle 等框架会跟随主程序强制显示英文
+ CFBundleAllowMixedLocalizations=True,CFBundleLocalizations=['en','zh-Hans','zh-Hant'],
  CFBundleIconFile='DbPilot.icns',SUFeedURL=f"https://{os.environ['REPOSITORY'].split('/',1)[0]}.github.io/{os.environ['REPOSITORY'].split('/',1)[1]}/stable/appcast-{os.environ['RID']}.xml",
  SUPublicEDKey=os.environ['PUBLIC_KEY'],SUEnableAutomaticChecks=True,SUAutomaticallyUpdate=False)
 (app/'Contents/Info.plist').write_bytes(plistlib.dumps(info))
