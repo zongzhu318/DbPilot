@@ -36,7 +36,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();DataContext=_vm;InitializeCompletion();InitializeSqlContextMenu();
-        if(OperatingSystem.IsMacOS())AppMenuBar.IsVisible=false;
+        if(OperatingSystem.IsMacOS())AppTitleBar.IsVisible=false;
         AddHandler(KeyDownEvent,WorkspaceKeyDown,Avalonia.Interactivity.RoutingStrategies.Tunnel);
         TableCatalogGrid.AddHandler(PointerPressedEvent,CatalogPointerPressed,RoutingStrategies.Tunnel,handledEventsToo:true);
         TableCatalogGrid.AddHandler(ContextRequestedEvent,CatalogContextRequested,RoutingStrategies.Tunnel,handledEventsToo:true);

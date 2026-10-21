@@ -99,7 +99,7 @@
   <Style Selector="Expander#TaskLogPanel"><Setter Property="Foreground" Value="{DynamicResource MutedText}"/></Style>
  </Window.Styles>
  <Grid RowDefinitions="Auto,Auto,*,Auto">
-  <Border Grid.Row="0" Classes="compactBar" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,3,0,0" Padding="8,2">
+  <Border x:Name="AppTitleBar" Grid.Row="0" Classes="compactBar" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,3,0,0" Padding="8,2">
    <StackPanel Orientation="Horizontal" Spacing="6"><Image Source="/Assets/logo.png" Width="22" Height="22"/><TextBlock Text="DbPilot" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
     <Menu x:Name="AppMenuBar" Background="Transparent">
      <MenuItem Header="文件"><MenuItem Header="新建连接" Click="NewConnection"/><MenuItem x:Name="OpenConnectionButton" Header="打开连接" Click="ConnectDatabase"/><MenuItem x:Name="CloseConnectionButton" Header="关闭连接" Click="DisconnectDatabase"/><Separator/><MenuItem Header="编辑连接" Click="EditConnection"/><MenuItem Header="复制连接" Click="CopyConnection"/><MenuItem Header="删除连接" Click="DeleteConnection"/><Separator/><MenuItem Header="新建查询" Click="NewQuery"/><MenuItem Header="打开脚本" Click="OpenScript"/><MenuItem Header="保存脚本（⌘/Ctrl+S）" Click="SaveScript"/><Separator/><MenuItem Header="查询历史" Click="ShowHistory"/><MenuItem Header="配置备份" Click="WorkspaceBackup"/></MenuItem>
