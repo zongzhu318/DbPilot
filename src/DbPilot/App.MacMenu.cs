@@ -114,7 +114,7 @@ public sealed partial class App
         var version=AppInfo.Version;
         var dialog=DialogUi.Dialog($"关于 {AppInfo.DisplayName}",460);
         dialog.SizeToContent=SizeToContent.Height;dialog.CanResize=false;
-        var logo=new Bitmap(AssetLoader.Open(new Uri("avares://DbPilot/Assets/logo.png")));
+        var logo=new Bitmap(AssetLoader.Open(new Uri("avares://DbPilot/Assets/AppIcon.png")));
         dialog.Closed+=(_,_)=>logo.Dispose();
 
         var iconTile=new Border{Width=112,Height=112,CornerRadius=new CornerRadius(26),Padding=new Thickness(12),HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,0,0,18)};
@@ -148,6 +148,28 @@ public sealed partial class App
         dialog.Content=root;
         if(mainWindow is not null)await dialog.ShowDialog(mainWindow);else dialog.Show();
     }
+    // macOS 程序坞不读取 Window.Icon，且 bundle 图标会被 Dock 长时间缓存，运行期显式设置才能确保显示新图标。
+    internal static void ApplyMacDockIcon()
+    {
+        if(!OperatingSystem.IsMacOS())return;
+        using var stream=AssetLoader.Open(new Uri("avares://DbPilot/Assets/AppIcon.png"));
+        using var buffer=new MemoryStream();
+        stream.CopyTo(buffer);
+        var bytes=buffer.ToArray();
+        var pinned=GCHandle.Alloc(bytes,GCHandleType.Pinned);
+        try
+        {
+            var data=Send(GetClass("NSData"),GetSelector("alloc"));
+            data=SendBytes(data,GetSelector("initWithBytes:length:"),pinned.AddrOfPinnedObject(),(nuint)bytes.Length);
+            var image=Send(GetClass("NSImage"),GetSelector("alloc"));
+            image=SendObject(image,GetSelector("initWithData:"),data);
+            var app=Send(GetClass("NSApplication"),GetSelector("sharedApplication"));
+            SendWithArgument(app,GetSelector("setApplicationIconImage:"),image);
+            Send(image,GetSelector("release"));
+            Send(data,GetSelector("release"));
+        }
+        finally{pinned.Free();}
+    }
     private static NativeMenuItem AppAction(string title,string? gesture,Action action)
     {
         var item=new NativeMenuItem(title);
@@ -180,4 +202,8 @@ public sealed partial class App
     private static extern IntPtr Send(IntPtr receiver,IntPtr selector);
     [DllImport("/usr/lib/libobjc.A.dylib",EntryPoint="objc_msgSend")]
     private static extern void SendWithArgument(IntPtr receiver,IntPtr selector,IntPtr argument);
+    [DllImport("/usr/lib/libobjc.A.dylib",EntryPoint="objc_msgSend")]
+    private static extern IntPtr SendObject(IntPtr receiver,IntPtr selector,IntPtr argument);
+    [DllImport("/usr/lib/libobjc.A.dylib",EntryPoint="objc_msgSend")]
+    private static extern IntPtr SendBytes(IntPtr receiver,IntPtr selector,IntPtr bytes,nuint length);
 }

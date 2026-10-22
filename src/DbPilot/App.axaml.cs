@@ -19,5 +19,6 @@ public sealed partial class App : Application
             ConfigureMacWindowMenu(desktop.MainWindow);
         }
         base.OnFrameworkInitializationCompleted();
+        ApplyMacDockIcon();
     }
 }
