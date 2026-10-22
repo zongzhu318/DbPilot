@@ -8,7 +8,7 @@
     <BuildChannel Condition="'$(BuildChannel)' == '' and '$(Configuration)' == 'Debug'">Development</BuildChannel>
     <BuildChannel Condition="'$(BuildChannel)' == ''">Production</BuildChannel>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets/logo.ico</ApplicationIcon>
+    <ApplicationIcon>Assets/AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="BuildChannel" Value="$(BuildChannel)" />

@@ -43,7 +43,7 @@ iconset=pathlib.Path('artifacts/DbPilot.iconset');iconset.mkdir(exist_ok=True)
 for size in (16,32,128,256,512):
  for scale in (1,2):
   name=f'icon_{size}x{size}'+('@2x' if scale==2 else '')+'.png'
-  subprocess.run(['sips','-z',str(size*scale),str(size*scale),'src/DbPilot/Assets/logo.png','--out',str(iconset/name)],check=True,stdout=subprocess.DEVNULL)
+  subprocess.run(['sips','-z',str(size*scale),str(size*scale),'src/DbPilot/Assets/AppIcon.png','--out',str(iconset/name)],check=True,stdout=subprocess.DEVNULL)
 subprocess.run(['iconutil','-c','icns',str(iconset),'-o',str(app/'Contents/Resources/DbPilot.icns')],check=True)
 PY
 chmod +x "$APP/Contents/MacOS/DbPilot"

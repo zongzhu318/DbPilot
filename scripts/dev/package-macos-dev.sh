@@ -60,7 +60,7 @@ for size in 16 32 128 256 512; do
   for scale in 1 2; do
     if [[ "$scale" == 2 ]]; then suffix='@2x'; else suffix=''; fi
     name="icon_${size}x${size}${suffix}.png"
-    sips -z "$((size * scale))" "$((size * scale))" src/DbPilot/Assets/logo.png --out "$ICONSET/$name" >/dev/null
+    sips -z "$((size * scale))" "$((size * scale))" src/DbPilot/Assets/AppIcon.png --out "$ICONSET/$name" >/dev/null
   done
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/DbPilot.icns"
