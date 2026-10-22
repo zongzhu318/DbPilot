@@ -43,6 +43,35 @@ class AppcastTests(unittest.TestCase):
                 digest, name = line.split('  ')
                 self.assertEqual(digest, hashlib.sha256((directory / name).read_bytes()).hexdigest())
 
+    def test_macos_feeds_embed_markdown_release_notes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            names = ['DbPilot-1.2.3-osx-arm64.dmg', 'DbPilot-1.2.3-osx-x64.dmg',
+                     'DbPilot-1.2.3-win-x64-setup.exe']
+            for name in names:
+                (directory / name).write_bytes(name.encode())
+            def sign(args, **kwargs):
+                if '--verify' in args:
+                    return subprocess.CompletedProcess(args, 0, '')
+                asset = Path(args[-1])
+                if asset.suffix == '.xml':
+                    return subprocess.CompletedProcess(args, 0, '')
+                return subprocess.CompletedProcess(args, 0, f'sparkle:edSignature="test-signature" length="{asset.stat().st_size}"')
+            notes = '### 新功能\n\n- 支持显示升级说明\n- 修复若干问题'
+            with patch.object(module.subprocess, 'run', side_effect=sign):
+                module.generate(directory, 'owner/repo', '1.2.3', 'sign_update', 'secret-file', notes)
+            for rid in ('osx-arm64', 'osx-x64'):
+                item = ET.parse(directory / f'appcast-{rid}.xml').getroot().find('channel/item')
+                description = item.find('description')
+                self.assertIsNotNone(description)
+                self.assertEqual(description.text, notes)
+                self.assertEqual(description.get(f'{{{module.NS}}}format'), 'markdown')
+                self.assertIsNone(item.find(f'{{{module.NS}}}releaseNotesLink'))
+            win_item = ET.parse(directory / 'appcast-win-x64.xml').getroot().find('channel/item')
+            self.assertIsNone(win_item.find('description'))
+            self.assertEqual(win_item.find(f'{{{module.NS}}}releaseNotesLink').text,
+                             'https://github.com/owner/repo/releases/tag/v1.2.3')
+
     def test_missing_installer_prevents_release_feed(self):
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaises(FileNotFoundError):

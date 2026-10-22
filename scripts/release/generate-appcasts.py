@@ -12,7 +12,7 @@ NS = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
 ET.register_namespace('sparkle', NS)
 
 
-def generate(directory, repository, version, signer, key_file):
+def generate(directory, repository, version, signer, key_file, release_notes=None):
     directory = Path(directory)
     assets = {
         'osx-arm64': f'DbPilot-{version}-osx-arm64.dmg',
@@ -40,6 +40,9 @@ def generate(directory, repository, version, signer, key_file):
         ET.SubElement(item, f'{{{NS}}}shortVersionString').text = version
         if rid.startswith('osx'):
             ET.SubElement(item, f'{{{NS}}}minimumSystemVersion').text = '12.0'
+            # Sparkle 2.9+ 才能渲染内嵌 Markdown 更新说明，未提供时标准弹窗不显示说明区域
+            if release_notes:
+                ET.SubElement(item, 'description', {f'{{{NS}}}format': 'markdown'}).text = release_notes
         else:
             ET.SubElement(item, f'{{{NS}}}releaseNotesLink').text = f'https://github.com/{repository}/releases/tag/v{version}'
         attrs.update(url=f'https://github.com/{repository}/releases/download/v{version}/{name}',
@@ -76,5 +79,7 @@ if __name__ == '__main__':
     p.add_argument('--version', required=True)
     p.add_argument('--signer', required=True)
     p.add_argument('--key-file', required=True)
+    p.add_argument('--release-notes-file', help='Markdown release notes embedded in macOS feed items')
     a = p.parse_args()
-    generate(a.directory, a.repository, a.version, a.signer, a.key_file)
+    notes = Path(a.release_notes_file).read_text(encoding='utf-8').strip() if a.release_notes_file else None
+    generate(a.directory, a.repository, a.version, a.signer, a.key_file, notes)

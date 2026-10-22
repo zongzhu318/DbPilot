@@ -419,7 +419,7 @@ jobs:
           KEY_FILE="$RUNNER_TEMP/sparkle-private-key"
           trap 'rm -f "$KEY_FILE"' EXIT
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
-          python3 scripts/release/generate-appcasts.py --directory artifacts/installers --repository "$REPOSITORY" --version "$RELEASE_VERSION" --signer artifacts/sparkle/bin/sign_update --key-file "$KEY_FILE"
+          python3 scripts/release/generate-appcasts.py --directory artifacts/installers --repository "$REPOSITORY" --version "$RELEASE_VERSION" --signer artifacts/sparkle/bin/sign_update --key-file "$KEY_FILE" --release-notes-file .release-work/release-notes.md
       - name: 发布正式 Release
         run: |
           set -euo pipefail
