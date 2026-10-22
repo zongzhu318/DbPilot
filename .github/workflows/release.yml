@@ -209,7 +209,7 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-          - os: macos-14
+          - os: macos-15
             rid: osx-arm64
           - os: macos-15-intel
             rid: osx-x64
@@ -278,7 +278,7 @@ jobs:
   publish:
     name: 发布（Tag 与 Releases）
     needs: [prepare, build]
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 15
     environment: release
     permissions:
