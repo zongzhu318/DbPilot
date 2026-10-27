@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -45,14 +46,35 @@ public sealed class TDengineProvider : IDbProvider
         while ((count = await stream.ReadAsync(bytes, ct)) > 0) { if (buffer.Length + count > 32 * 1024 * 1024) throw new InvalidOperationException("TDengine 响应超过 32 MB，请添加 LIMIT 或缩小时间范围。"); await buffer.WriteAsync(bytes.AsMemory(0,count),ct); }
         buffer.Position = 0; using var doc = await JsonDocument.ParseAsync(buffer, cancellationToken: ct); var root = doc.RootElement;
         if (root.TryGetProperty("code", out var code) && code.GetInt32() != 0) throw new InvalidOperationException(root.TryGetProperty("desc",out var desc) ? desc.GetString() : "TDengine 查询失败");
-        var columns = root.TryGetProperty("column_meta", out var meta) ? meta.EnumerateArray().Select(x => x[0].GetString() ?? "").ToArray() : [];
+        var meta = root.TryGetProperty("column_meta", out var metaElement) ? metaElement.EnumerateArray().ToArray() : [];
+        var columns = meta.Select(x => x[0].GetString() ?? "").ToArray();
+        var columnTypes = meta.Select(x => x.GetArrayLength() > 1 && x[1].ValueKind == JsonValueKind.String ? x[1].GetString() ?? "" : "").ToArray();
         var rows = new List<object?[]>(); bool truncated = false;
         if (root.TryGetProperty("data", out var data)) foreach (var row in data.EnumerateArray()) {
             if (rows.Count == limit) { truncated = true; break; }
-            var cells=row.ValueKind==JsonValueKind.Object ? columns.Select(name=>row.GetProperty(name)) : row.EnumerateArray().ToArray().AsEnumerable();
-            rows.Add(cells.Select(x => x.ValueKind switch { JsonValueKind.Null => null, JsonValueKind.String => (object?)x.GetString(), _ => x.ToString() }).ToArray());
+            var cells=row.ValueKind==JsonValueKind.Object ? columns.Select(name=>row.GetProperty(name)).ToArray() : row.EnumerateArray().ToArray();
+            rows.Add(cells.Select((cell,index) => ConvertValue(cell, index < columnTypes.Length ? columnTypes[index] : "")).ToArray());
         }
         return new(columns, rows, 0, truncated);
+    }
+    private static object? ConvertValue(JsonElement value,string type)
+    {
+        if(value.ValueKind==JsonValueKind.Null)return null;
+        if(value.ValueKind is JsonValueKind.True or JsonValueKind.False)return value.GetBoolean();
+        var name=type.ToUpperInvariant();
+        if(value.ValueKind==JsonValueKind.String){
+            var text=value.GetString();
+            if(name=="TIMESTAMP"&&text is not null&&DateTimeOffset.TryParse(text,CultureInfo.InvariantCulture,DateTimeStyles.None,out var stamp))return stamp.DateTime;
+            return text;
+        }
+        if(value.ValueKind!=JsonValueKind.Number)return value.ToString();
+        if(name=="BOOL"){if(value.TryGetInt64(out var flag))return flag!=0;return value.GetDouble()!=0;}
+        if(name is "FLOAT" or "DOUBLE"){if(value.TryGetDouble(out var number))return number;return value.ToString();}
+        if(name.StartsWith("DECIMAL",StringComparison.Ordinal)){if(value.TryGetDecimal(out var dec))return dec;return value.ToString();}
+        if(name.StartsWith("BIGINT UNSIGNED",StringComparison.Ordinal)||name=="UBIGINT"){if(value.TryGetUInt64(out var huge))return huge;if(value.TryGetDouble(out var approx))return approx;return value.ToString();}
+        if(name.Contains("INT",StringComparison.Ordinal)){if(value.TryGetInt64(out var signed))return signed;if(value.TryGetUInt64(out var unsigned))return unsigned;if(value.TryGetDouble(out var wide))return wide;return value.ToString();}
+        if(value.TryGetDouble(out var fallback))return fallback;
+        return value.ToString();
     }
     public async Task<IReadOnlyList<string>> DatabasesAsync(CancellationToken ct) => (await QueryAsync("SHOW DATABASES",10000,ct)).Rows.Select(x => x[0]?.ToString() ?? "").ToArray();
     public async Task<IReadOnlyList<DbObject>> ObjectsAsync(string database, CancellationToken ct)

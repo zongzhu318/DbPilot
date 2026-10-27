@@ -9,6 +9,7 @@ public static class ResultExport
     public static async Task WriteAsync(QueryResult result,Stream output,string format,IDbProvider? provider,DatabaseKind kind,DbObject? target,CancellationToken ct)
     {
         if(format=="sql"&&(provider is null||target is null||result.Columns.Distinct(StringComparer.Ordinal).Count()!=result.Columns.Count))throw new ArgumentException("SQL 导出需要目标表与无重复的字段名称，请为重复列设置别名。");
+        if(format=="xlsx"){await XlsxWorkbook.WriteAsync(output,result.Columns,Rows(result.Rows,ct),"结果",ct);return;}
         await using var writer=new StreamWriter(output,new UTF8Encoding(format=="csv"),leaveOpen:true);
         if(format=="csv")await writer.WriteLineAsync(string.Join(",",result.Columns.Select(SqlTools.CsvCell)).AsMemory(),ct);
         if(format=="json")await writer.WriteAsync("[".AsMemory(),ct);
@@ -22,5 +23,10 @@ public static class ResultExport
             await writer.WriteLineAsync(text.AsMemory(),ct);
         }
         if(format=="json")await writer.WriteAsync("]".AsMemory(),ct);await writer.FlushAsync(ct);
+    }
+    private static async IAsyncEnumerable<object?[]> Rows(IReadOnlyList<object?[]> rows,[System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        await Task.CompletedTask;
+        foreach(var row in rows){ct.ThrowIfCancellationRequested();yield return row;}
     }
 }

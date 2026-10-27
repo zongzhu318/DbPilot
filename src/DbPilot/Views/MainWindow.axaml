@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:m="using:DbPilot.Models" xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
- x:Class="DbPilot.Views.MainWindow" Title="DbPilot — 数据库工作台" Icon="/Assets/AppIcon.ico" Width="1360" Height="860" MinWidth="1040" MinHeight="680" Background="{DynamicResource WorkspaceBackground}" Foreground="{DynamicResource WorkspaceText}">
+ x:Class="DbPilot.Views.MainWindow" Title="DbPilot — 数据库工作台" Icon="/Assets/AppIcon.ico" Width="1440" Height="900" MinWidth="1060" MinHeight="700" Background="{DynamicResource WorkspaceBackground}" Foreground="{DynamicResource WorkspaceText}">
  <Window.Resources>
   <StreamGeometry x:Key="IconDatabase">M20 6C20 7.66 16.42 9 12 9S4 7.66 4 6 7.58 3 12 3 20 4.34 20 6ZM4 6V18C4 19.66 7.58 21 12 21S20 19.66 20 18V6M4 12C4 13.66 7.58 15 12 15S20 13.66 20 12</StreamGeometry>
   <StreamGeometry x:Key="IconFolder">M3 7C3 5.9 3.9 5 5 5H9L11 7H19C20.1 7 21 7.9 21 9V17C21 18.1 20.1 19 19 19H5C3.9 19 3 18.1 3 17Z</StreamGeometry>
@@ -11,8 +11,28 @@
   <StreamGeometry x:Key="IconPlus">M12 5V19M5 12H19</StreamGeometry>
   <StreamGeometry x:Key="IconRefresh">M20 12A8 8 0 1 1 17.66 6.34M20 4V9H15</StreamGeometry>
   <StreamGeometry x:Key="IconSearch">M11 4A7 7 0 1 0 11 18A7 7 0 1 0 11 4M16.4 16.4L21 21</StreamGeometry>
+  <StreamGeometry x:Key="IconClose">M6 6L18 18M18 6L6 18</StreamGeometry>
+  <StreamGeometry x:Key="IconQuery">M5 3.5H19V20.5H5ZM8 8H16M8 12H16M8 16H13</StreamGeometry>
+  <StreamGeometry x:Key="IconChevronDown">M7 10L12 15L17 10</StreamGeometry>
+  <StreamGeometry x:Key="IconFilter">M4 5H20L14 12V19L10 17V12Z</StreamGeometry>
+  <StreamGeometry x:Key="IconDownload">M12 3V15M8 11L12 15L16 11M5 19H19</StreamGeometry>
+  <StreamGeometry x:Key="IconUpload">M12 15V3M8 7L12 3L16 7M5 19H19</StreamGeometry>
+  <StreamGeometry x:Key="IconBolt">M13 2L5 14H11L10 22L19 9H12Z</StreamGeometry>
  </Window.Resources>
  <Window.Styles>
+  <Style Selector="Border.titleBar">
+   <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/>
+   <Setter Property="BorderThickness" Value="0,0,0,1"/>
+   <Setter Property="Padding" Value="12,0"/>
+   <Setter Property="MinHeight" Value="34"/>
+  </Style>
+  <Style Selector="Border.appToolbar">
+   <Setter Property="Background" Value="{DynamicResource ToolbarBackground}"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource ToolbarBorder}"/>
+   <Setter Property="BorderThickness" Value="0,0,0,1"/>
+   <Setter Property="Padding" Value="8,5"/>
+  </Style>
   <Style Selector="Border.compactBar Button">
    <Setter Property="FontSize" Value="11"/>
    <Setter Property="Padding" Value="8,3"/>
@@ -22,19 +42,21 @@
   <Style Selector="Button.tool">
    <Setter Property="Background" Value="Transparent"/>
    <Setter Property="BorderThickness" Value="0"/>
-   <Setter Property="Padding" Value="10,4"/>
-   <Setter Property="MinWidth" Value="58"/>
-   <Setter Property="MinHeight" Value="52"/>
+   <Setter Property="CornerRadius" Value="6"/>
+   <Setter Property="Padding" Value="12,5"/>
+   <Setter Property="MinWidth" Value="62"/>
+   <Setter Property="MinHeight" Value="54"/>
    <Setter Property="HorizontalContentAlignment" Value="Center"/>
    <Setter Property="VerticalContentAlignment" Value="Center"/>
   </Style>
   <Style Selector="Button.tool:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-   <Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/>
+   <Setter Property="Background" Value="{DynamicResource ToolbarHover}"/>
   </Style>
   <Style Selector="Button.tool:pressed /template/ ContentPresenter#PART_ContentPresenter">
    <Setter Property="Background" Value="{DynamicResource PressedBackground}"/>
   </Style>
-  <Style Selector="Button.tool:disabled"><Setter Property="Opacity" Value="0.4"/></Style>
+  <Style Selector="Button.tool:disabled"><Setter Property="Opacity" Value="0.38"/></Style>
+  <Style Selector="Button.tool:disabled /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
   <Style Selector="Button.tool TextBlock">
    <Setter Property="FontSize" Value="11"/>
    <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/>
@@ -43,28 +65,68 @@
   <Style Selector="Button.tool:pointerover TextBlock"><Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/></Style>
   <Style Selector="Border.toolSeparator">
    <Setter Property="Width" Value="1"/>
-   <Setter Property="Height" Value="28"/>
-   <Setter Property="Background" Value="{DynamicResource WorkspaceBorder}"/>
-   <Setter Property="Margin" Value="6,0"/>
+   <Setter Property="Height" Value="30"/>
+   <Setter Property="Background" Value="{DynamicResource ToolbarBorder}"/>
+   <Setter Property="Margin" Value="9,0"/>
    <Setter Property="VerticalAlignment" Value="Center"/>
+   <Setter Property="Opacity" Value="0.9"/>
   </Style>
-  <Style Selector="#EditorWorkspaceGrid Button"><Setter Property="FontSize" Value="11"/><Setter Property="MinHeight" Value="26"/><Setter Property="Padding" Value="7,3"/></Style>
+  <Style Selector="#EditorWorkspaceGrid Button"><Setter Property="FontSize" Value="11"/><Setter Property="MinHeight" Value="26"/><Setter Property="Padding" Value="8,3"/></Style>
   <Style Selector="#EditorWorkspaceGrid ComboBox"><Setter Property="MinHeight" Value="28"/><Setter Property="Padding" Value="7,3"/></Style>
   <Style Selector="#EditorWorkspaceGrid TextBox"><Setter Property="MinHeight" Value="28"/><Setter Property="Padding" Value="7,4"/></Style>
-  <Style Selector="#TaskLogPanel /template/ ToggleButton"><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="Foreground" Value="{DynamicResource MutedText}"/><Setter Property="MinHeight" Value="28"/><Setter Property="Padding" Value="6,2"/></Style>
-  <Style Selector="ListBox#QueryTabs"><Setter Property="Background" Value="Transparent"/></Style>
-  <Style Selector="#QueryTabs ListBoxItem"><Setter Property="CornerRadius" Value="0"/><Setter Property="Margin" Value="0,0,4,0"/><Setter Property="Padding" Value="9,4"/></Style>
-  <Style Selector="#QueryTabs ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/></Style>
-  <Style Selector="#QueryTabs ListBoxItem:selected"><Setter Property="Foreground" Value="{DynamicResource SelectionText}"/></Style>
-  <Style Selector="#QueryTabs ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SelectionBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="BorderThickness" Value="0,0,0,2"/><Setter Property="TextElement.Foreground" Value="{DynamicResource SelectionText}"/></Style>
+  <Style Selector="#TaskLogPanel /template/ ToggleButton"><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="Foreground" Value="{DynamicResource MutedText}"/><Setter Property="MinHeight" Value="26"/><Setter Property="Padding" Value="8,2"/></Style>
+  <Style Selector="ListBox#QueryTabs"><Setter Property="Background" Value="Transparent"/><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/></Style>
+  <Style Selector="#QueryTabs ListBoxItem">
+   <Setter Property="CornerRadius" Value="6,6,0,0"/>
+   <Setter Property="Margin" Value="0,0,2,0"/>
+   <Setter Property="Padding" Value="0"/>
+   <Setter Property="MinHeight" Value="32"/>
+   <Setter Property="Background" Value="Transparent"/>
+   <Setter Property="BorderBrush" Value="Transparent"/>
+   <Setter Property="BorderThickness" Value="0,0,0,2"/>
+  </Style>
+  <Style Selector="#QueryTabs ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+   <Setter Property="Background" Value="{DynamicResource TabInactiveBackground}"/>
+   <Setter Property="CornerRadius" Value="6,6,0,0"/>
+   <Setter Property="BorderBrush" Value="Transparent"/>
+   <Setter Property="BorderThickness" Value="0,0,0,2"/>
+  </Style>
+  <Style Selector="#QueryTabs ListBoxItem:selected">
+   <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/>
+   <Setter Property="Background" Value="{DynamicResource TabActiveBackground}"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+  </Style>
+  <Style Selector="#QueryTabs ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+   <Setter Property="Background" Value="{DynamicResource TabActiveBackground}"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+   <Setter Property="BorderThickness" Value="0,0,0,2"/>
+   <Setter Property="CornerRadius" Value="6,6,0,0"/>
+   <Setter Property="TextElement.Foreground" Value="{DynamicResource WorkspaceText}"/>
+  </Style>
+  <Style Selector="#QueryTabs ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+   <Setter Property="Background" Value="{DynamicResource TabActiveBackground}"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+  </Style>
+  <Style Selector="Button.tabClose">
+   <Setter Property="Width" Value="18"/><Setter Property="Height" Value="18"/><Setter Property="MinWidth" Value="0"/><Setter Property="MinHeight" Value="0"/>
+   <Setter Property="Padding" Value="0"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="CornerRadius" Value="3"/>
+   <Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/>
+   <Setter Property="Opacity" Value="0"/>
+  </Style>
+  <Style Selector="#QueryTabs ListBoxItem:pointerover Button.tabClose"><Setter Property="Opacity" Value="1"/></Style>
+  <Style Selector="#QueryTabs ListBoxItem:selected Button.tabClose"><Setter Property="Opacity" Value="1"/></Style>
+  <Style Selector="Button.tabClose:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource PressedBackground}"/></Style>
+  <Style Selector="Button.tabClose Path"><Setter Property="Stroke" Value="{DynamicResource MutedText}"/></Style>
+  <Style Selector="Button.tabClose:pointerover Path"><Setter Property="Stroke" Value="{DynamicResource WorkspaceText}"/></Style>
   <Style Selector="Button.sidebarIcon">
-   <Setter Property="Width" Value="22"/>
-   <Setter Property="Height" Value="22"/>
+   <Setter Property="Width" Value="24"/>
+   <Setter Property="Height" Value="24"/>
    <Setter Property="MinWidth" Value="0"/>
    <Setter Property="MinHeight" Value="0"/>
    <Setter Property="Padding" Value="0"/>
    <Setter Property="Background" Value="Transparent"/>
    <Setter Property="BorderThickness" Value="0"/>
+   <Setter Property="CornerRadius" Value="3"/>
    <Setter Property="HorizontalContentAlignment" Value="Center"/>
    <Setter Property="VerticalContentAlignment" Value="Center"/>
   </Style>
@@ -72,19 +134,33 @@
   <Style Selector="Button.sidebarIcon:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SidebarHoverBackground}"/></Style>
   <Style Selector="Button.sidebarIcon:pointerover Path"><Setter Property="Stroke" Value="{DynamicResource AccentBrush}"/></Style>
   <Style Selector="TextBox#ObjectFilter">
-   <Setter Property="Height" Value="26"/>
-   <Setter Property="MinHeight" Value="26"/>
-   <Setter Property="CornerRadius" Value="0"/>
+   <Setter Property="Height" Value="30"/>
+   <Setter Property="MinHeight" Value="30"/>
+   <Setter Property="CornerRadius" Value="6"/>
    <Setter Property="Background" Value="{DynamicResource SidebarSearchBackground}"/>
    <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/>
    <Setter Property="BorderThickness" Value="1"/>
    <Setter Property="FontSize" Value="12"/>
-   <Setter Property="Padding" Value="4,0,6,0"/>
+   <Setter Property="Padding" Value="4,0,8,0"/>
    <Setter Property="VerticalContentAlignment" Value="Center"/>
   </Style>
+  <Style Selector="TextBox#ResultSearch">
+   <Setter Property="Height" Value="28"/>
+   <Setter Property="MinHeight" Value="28"/>
+   <Setter Property="CornerRadius" Value="14"/>
+   <Setter Property="Padding" Value="5,0,10,0"/>
+   <Setter Property="FontSize" Value="11.5"/>
+   <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="TextBox#TableCatalogFilter">
+   <Setter Property="Height" Value="28"/>
+   <Setter Property="MinHeight" Value="28"/>
+   <Setter Property="CornerRadius" Value="6"/>
+   <Setter Property="FontSize" Value="11.5"/>
+  </Style>
   <Style Selector="TreeView#ObjectTree"><Setter Property="Background" Value="Transparent"/><Setter Property="Padding" Value="0"/></Style>
-  <Style Selector="#ObjectTree TreeViewItem"><Setter Property="MinHeight" Value="24"/><Setter Property="Margin" Value="0"/><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="CornerRadius" Value="0"/></Style>
-  <Style Selector="#ObjectTree TreeViewItem /template/ Border#PART_LayoutRoot"><Setter Property="CornerRadius" Value="0"/><Setter Property="Padding" Value="0"/></Style>
+  <Style Selector="#ObjectTree TreeViewItem"><Setter Property="MinHeight" Value="26"/><Setter Property="Margin" Value="0"/><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="CornerRadius" Value="4"/></Style>
+  <Style Selector="#ObjectTree TreeViewItem /template/ Border#PART_LayoutRoot"><Setter Property="CornerRadius" Value="4"/><Setter Property="Padding" Value="1,0"/></Style>
   <Style Selector="#ObjectTree TreeViewItem:pointerover /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource SidebarHoverBackground}"/></Style>
   <Style Selector="#ObjectTree TreeViewItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource SidebarSelectionBackground}"/></Style>
   <Style Selector="#ObjectTree TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron"><Setter Property="Width" Value="16"/><Setter Property="Height" Value="16"/></Style>
@@ -94,111 +170,156 @@
   <Style Selector="TextBlock.nodeLabel.category"><Setter Property="FontSize" Value="10.5"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Foreground" Value="{DynamicResource MutedText}"/></Style>
   <Style Selector="TextBlock.nodeLabel.hint"><Setter Property="FontSize" Value="10.5"/><Setter Property="Foreground" Value="{DynamicResource MutedText}"/><Setter Property="Opacity" Value="0.8"/></Style>
   <Style Selector="TextBlock.nodeLabel.column"><Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="{DynamicResource MutedText}"/></Style>
-  <Style Selector="Expander#TaskLogPanel"><Setter Property="Foreground" Value="{DynamicResource MutedText}"/></Style>
+  <Style Selector="Expander#TaskLogPanel"><Setter Property="Foreground" Value="{DynamicResource MutedText}"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
+  <Style Selector="TabStrip#WorkspaceModeTabs"><Setter Property="Background" Value="Transparent"/></Style>
+  <Style Selector="#WorkspaceModeTabs TabStripItem">
+   <Setter Property="FontSize" Value="11"/>
+   <Setter Property="MinHeight" Value="26"/>
+   <Setter Property="Padding" Value="11,3"/>
+   <Setter Property="Margin" Value="0"/>
+   <Setter Property="CornerRadius" Value="3"/>
+   <Setter Property="Foreground" Value="{DynamicResource MutedText}"/>
+  </Style>
+  <Style Selector="#WorkspaceModeTabs TabStripItem:selected">
+   <Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/>
+   <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
+   <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="Button.quickCard">
+   <Setter Property="Width" Value="176"/>
+   <Setter Property="Height" Value="112"/>
+   <Setter Property="Padding" Value="16,14"/>
+   <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="CornerRadius" Value="8"/>
+   <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+   <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+  </Style>
+  <Style Selector="Button.quickCard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+   <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+  </Style>
+  <Style Selector="Border.pane"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="6"/></Style>
+  <Style Selector="Border.catalogActions"><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="0,0,0,1"/><Setter Property="Padding" Value="8,5"/></Style>
  </Window.Styles>
  <Grid RowDefinitions="Auto,Auto,*,Auto">
-  <Border x:Name="AppTitleBar" Grid.Row="0" Classes="compactBar" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,3,0,0" Padding="8,2">
-   <StackPanel Orientation="Horizontal" Spacing="6"><Image Source="/Assets/AppIcon.png" Width="22" Height="22"/><TextBlock x:Name="AppNameText" Text="DbPilot" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
-    <Menu x:Name="AppMenuBar" Background="Transparent">
-     <MenuItem Header="文件">
-      <MenuItem x:Name="FileNewConnection" Header="新建连接" Click="NewConnection"/>
-      <MenuItem x:Name="FileOpenConnection" Header="打开连接" Click="ConnectDatabase"/>
-      <MenuItem x:Name="FileCloseConnection" Header="关闭连接" Click="DisconnectDatabase"/>
-      <Separator/>
-      <MenuItem x:Name="FileEditConnection" Header="编辑连接" Click="EditConnection"/>
-      <MenuItem x:Name="FileCopyConnection" Header="复制连接" Click="CopyConnection"/>
-      <MenuItem x:Name="FileDeleteConnection" Header="删除连接" Click="DeleteConnection"/>
-      <Separator/>
-      <MenuItem x:Name="FileNewQuery" Header="新建查询" Click="NewQuery"/>
-      <MenuItem x:Name="FileOpenScript" Header="打开脚本" Click="OpenScript"/>
-      <MenuItem x:Name="FileSaveScript" Header="保存脚本" Click="SaveScript"/>
-      <Separator/>
-      <MenuItem x:Name="FileHistory" Header="查询历史" Click="ShowHistory"/>
-      <MenuItem x:Name="FileBackup" Header="配置备份" Click="WorkspaceBackup"/>
-     </MenuItem>
-     <MenuItem Header="查询">
-      <MenuItem x:Name="QueryRunMenuItem" Header="执行 SQL" Click="RunSql"/>
-      <MenuItem x:Name="QueryRunSelectionMenuItem" Header="执行选中 SQL" Click="RunSelectionSql"/>
-      <MenuItem x:Name="QueryStopMenuItem" Header="终止任务" Click="StopSql"/>
-      <Separator/>
-      <MenuItem x:Name="QueryFormatMenuItem" Header="格式化 SQL" Click="FormatSql"/>
-      <MenuItem x:Name="QueryCompletionMenuItem" Header="SQL 补全" Click="ShowCompletionMenu"/>
-      <Separator/>
-      <MenuItem x:Name="QueryExportMenuItem" Header="导出结果" Click="ExportResult"/>
-     </MenuItem>
-     <MenuItem Header="查看">
-      <MenuItem x:Name="ViewSidebarMenuItem" Header="显示 / 隐藏侧栏" Click="ToggleSidebar"/>
-      <MenuItem x:Name="ViewEditorMenuItem" Header="展开 / 收起 SQL 编辑器" Click="ToggleEditor"/>
-      <MenuItem x:Name="ViewLogsMenuItem" Header="显示 / 隐藏日志" Click="ToggleLogs"/>
-      <MenuItem x:Name="ViewFocusMenuItem" Header="专注模式" Click="ToggleFocusMode"/>
-      <Separator/>
-      <MenuItem x:Name="ViewThemeMenuItem" Header="切换主题" Click="ToggleTheme"/>
-     </MenuItem>
-     <MenuItem Header="工具">
-      <MenuItem x:Name="ToolsCreateDatabase" Header="新建数据库" Click="CreateDatabase"/>
-      <MenuItem x:Name="ToolsCreateTable" Header="新建表" Click="CreateTable"/>
-      <Separator/>
-      <MenuItem x:Name="ToolsTemplates" Header="SQL 模板" Click="ShowTemplates"/>
-      <MenuItem x:Name="ToolsExplain" Header="执行计划" Click="ExplainSql"/>
-      <MenuItem x:Name="ToolsChart" Header="图表" Click="OpenChart"/>
-      <MenuItem x:Name="ToolsDatabase" Header="数据库工具" Click="OpenDatabaseTools"/>
-      <Separator/>
-      <MenuItem x:Name="ToolsSettings" Header="设置" Click="ShowSettings"/>
-     </MenuItem>
-     <MenuItem Header="帮助">
-      <MenuItem x:Name="HelpUpdate" Header="检查更新" Click="CheckForUpdates"/>
-      <MenuItem x:Name="HelpAbout" Header="关于 DbPilot" Click="ShowAbout"/>
-     </MenuItem>
-    </Menu>
-   </StackPanel>
+  <Border x:Name="AppTitleBar" Grid.Row="0" Classes="titleBar" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,0,0,1">
+   <Grid ColumnDefinitions="Auto,*,Auto">
+    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+     <Menu x:Name="AppMenuBar" Background="Transparent" Margin="0">
+      <MenuItem Header="文件">
+       <MenuItem x:Name="FileNewConnection" Header="新建连接" Click="NewConnection"/>
+       <MenuItem x:Name="FileOpenConnection" Header="打开连接" Click="ConnectDatabase"/>
+       <MenuItem x:Name="FileCloseConnection" Header="关闭连接" Click="DisconnectDatabase"/>
+       <Separator/>
+       <MenuItem x:Name="FileEditConnection" Header="编辑连接" Click="EditConnection"/>
+       <MenuItem x:Name="FileCopyConnection" Header="复制连接" Click="CopyConnection"/>
+       <MenuItem x:Name="FileDeleteConnection" Header="删除连接" Click="DeleteConnection"/>
+       <Separator/>
+       <MenuItem x:Name="FileNewQuery" Header="新建查询" Click="NewQuery"/>
+       <MenuItem x:Name="FileOpenScript" Header="打开脚本" Click="OpenScript"/>
+       <MenuItem x:Name="FileSaveScript" Header="保存脚本" Click="SaveScript"/>
+       <Separator/>
+       <MenuItem x:Name="FileHistory" Header="查询历史" Click="ShowHistory"/>
+       <MenuItem x:Name="FileBackup" Header="配置备份" Click="WorkspaceBackup"/>
+      </MenuItem>
+      <MenuItem Header="查询">
+       <MenuItem x:Name="QueryRunMenuItem" Header="执行 SQL" Click="RunSql"/>
+       <MenuItem x:Name="QueryRunSelectionMenuItem" Header="执行选中 SQL" Click="RunSelectionSql"/>
+       <MenuItem x:Name="QueryRunCurrentMenuItem" Header="执行当前语句" Click="RunCurrentStatement"/>
+       <MenuItem x:Name="QueryStopMenuItem" Header="终止任务" Click="StopSql"/>
+       <Separator/>
+       <MenuItem x:Name="QueryFormatMenuItem" Header="格式化 SQL" Click="FormatSql"/>
+       <MenuItem x:Name="QueryCompletionMenuItem" Header="SQL 补全" Click="ShowCompletionMenu"/>
+       <Separator/>
+       <MenuItem x:Name="QueryExportMenuItem" Header="导出结果" Click="ExportResult"/>
+      </MenuItem>
+      <MenuItem Header="查看">
+       <MenuItem x:Name="ViewSidebarMenuItem" Header="显示 / 隐藏侧栏" Click="ToggleSidebar"/>
+       <MenuItem x:Name="ViewEditorMenuItem" Header="展开 / 收起 SQL 编辑器" Click="ToggleEditor"/>
+       <MenuItem x:Name="ViewLogsMenuItem" Header="显示 / 隐藏日志" Click="ToggleLogs"/>
+       <MenuItem x:Name="ViewFocusMenuItem" Header="专注模式" Click="ToggleFocusMode"/>
+       <Separator/>
+       <MenuItem x:Name="ViewThemeMenuItem" Header="切换主题" Click="ToggleTheme"/>
+      </MenuItem>
+      <MenuItem Header="工具">
+       <MenuItem x:Name="ToolsCreateDatabase" Header="新建数据库" Click="CreateDatabase"/>
+       <MenuItem x:Name="ToolsCreateTable" Header="新建表" Click="CreateTable"/>
+       <Separator/>
+       <MenuItem x:Name="ToolsTemplates" Header="SQL 模板" Click="ShowTemplates"/>
+       <MenuItem x:Name="ToolsExplain" Header="执行计划" Click="ExplainSql"/>
+       <MenuItem x:Name="ToolsChart" Header="图表" Click="OpenChart"/>
+       <MenuItem x:Name="ToolsDatabase" Header="数据库工具" Click="OpenDatabaseTools"/>
+       <Separator/>
+       <MenuItem x:Name="ToolsSettings" Header="设置" Click="ShowSettings"/>
+      </MenuItem>
+      <MenuItem Header="帮助">
+       <MenuItem x:Name="HelpUpdate" Header="检查更新" Click="CheckForUpdates"/>
+       <MenuItem x:Name="HelpAbout" Header="关于 DbPilot" Click="ShowAbout"/>
+      </MenuItem>
+     </Menu>
+    </StackPanel>
+   </Grid>
   </Border>
-  <Border Grid.Row="1" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,1" Padding="6,2">
-   <StackPanel Orientation="Horizontal" Spacing="2">
-    <Button Classes="tool" Click="NewConnection" ToolTip.Tip="新建连接">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/electric_plug.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="连接"/></StackPanel>
-    </Button>
-    <Button Classes="tool" x:Name="ShowTablesButton" Click="ShowCatalog" ToolTip.Tip="浏览当前数据库的表">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/file_cabinet.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="表列表"/></StackPanel>
-    </Button>
-    <Button Classes="tool" x:Name="NewQueryButton" Click="NewQuery" ToolTip.Tip="新建查询">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/memo.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="新建查询"/></StackPanel>
-    </Button>
-    <Border Classes="toolSeparator"/>
-    <Button Classes="tool" x:Name="ExecuteSqlButton" Click="RunSql" ToolTip.Tip="执行选中 SQL；未选中时执行整个脚本">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/play.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="执行"/></StackPanel>
-    </Button>
-    <Button Classes="tool" x:Name="StopSqlButton" Click="StopSql" ToolTip.Tip="终止当前任务">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/stop.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="终止"/></StackPanel>
-    </Button>
-    <Button Classes="tool" x:Name="FormatSqlButton" Click="FormatSql" ToolTip.Tip="格式化 SQL">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/magic_wand.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="格式化"/></StackPanel>
-    </Button>
-    <Button Classes="tool" x:Name="SaveScriptButton" Click="SaveScript" ToolTip.Tip="保存 SQL">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/floppy_disk.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="保存 SQL"/></StackPanel>
-    </Button>
-    <Button Classes="tool" x:Name="ExportResultButton" Click="ExportResult" ToolTip.Tip="导出查询结果">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/outbox_tray.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="导出结果"/></StackPanel>
-    </Button>
-    <Border Classes="toolSeparator"/>
-    <Button Classes="tool" x:Name="SidebarToggleButton" Click="ToggleSidebar" ToolTip.Tip="显示或隐藏连接侧栏">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/card_index_dividers.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="侧栏"/></StackPanel>
-    </Button>
-    <Button Classes="tool" x:Name="EditorToggleButton" Click="ToggleEditor" ToolTip.Tip="展开或收起 SQL 编辑器">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/up_down_arrow.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock x:Name="EditorToggleLabel" Text="收起 SQL"/></StackPanel>
-    </Button>
-    <Button Classes="tool" x:Name="FocusModeButton" Click="ToggleFocusMode" ToolTip.Tip="隐藏侧栏、SQL 编辑器与日志，将空间留给表数据">
-     <StackPanel Spacing="2"><Image Source="/Assets/Icons/bullseye.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock x:Name="FocusModeLabel" Text="专注模式"/></StackPanel>
-    </Button>
-   </StackPanel>
+  <Border Grid.Row="1" Classes="appToolbar">
+   <Grid ColumnDefinitions="*,Auto">
+    <StackPanel Orientation="Horizontal" Spacing="1">
+     <Button Classes="tool" Click="NewConnection" ToolTip.Tip="新建数据库连接">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/electric_plug.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="连接"/></StackPanel>
+     </Button>
+     <Button Classes="tool" x:Name="ShowTablesButton" Click="ShowCatalog" ToolTip.Tip="浏览当前数据库的表">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/file_cabinet.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="表"/></StackPanel>
+     </Button>
+     <Button Classes="tool" x:Name="NewQueryButton" Click="NewQuery" ToolTip.Tip="新建查询">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/memo.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="新建查询"/></StackPanel>
+     </Button>
+     <Border Classes="toolSeparator"/>
+     <Button Classes="tool" x:Name="ExecuteSqlButton" Click="RunSql" ToolTip.Tip="执行选中 SQL；未选中时执行整个脚本">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/play.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="执行"/></StackPanel>
+     </Button>
+     <Button Classes="tool" x:Name="StopSqlButton" Click="StopSql" ToolTip.Tip="终止当前任务">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/stop.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="终止"/></StackPanel>
+     </Button>
+     <Button Classes="tool" x:Name="FormatSqlButton" Click="FormatSql" ToolTip.Tip="格式化 SQL">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/magic_wand.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="格式化"/></StackPanel>
+     </Button>
+     <Button Classes="tool" x:Name="SaveScriptButton" Click="SaveScript" ToolTip.Tip="保存 SQL">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/floppy_disk.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="保存"/></StackPanel>
+     </Button>
+     <Button Classes="tool" x:Name="ExportResultButton" Click="ExportResult" ToolTip.Tip="导出查询结果">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/outbox_tray.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="导出"/></StackPanel>
+     </Button>
+     <Border Classes="toolSeparator"/>
+     <Button Classes="tool" x:Name="SidebarToggleButton" Click="ToggleSidebar" ToolTip.Tip="显示或隐藏连接侧栏">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/card_index_dividers.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock Text="侧栏"/></StackPanel>
+     </Button>
+     <Button Classes="tool" x:Name="EditorToggleButton" Click="ToggleEditor" ToolTip.Tip="展开或收起 SQL 编辑器">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/up_down_arrow.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock x:Name="EditorToggleLabel" Text="收起 SQL"/></StackPanel>
+     </Button>
+     <Button Classes="tool" x:Name="FocusModeButton" Click="ToggleFocusMode" ToolTip.Tip="隐藏侧栏、SQL 编辑器与日志，将空间留给表数据">
+      <StackPanel Spacing="2"><Image Source="/Assets/Icons/bullseye.png" Width="24" Height="24" HorizontalAlignment="Center"/><TextBlock x:Name="FocusModeLabel" Text="专注模式"/></StackPanel>
+     </Button>
+    </StackPanel>
+    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="8,0,0,0">
+     <Button Classes="toolbar" Click="ShowSettings" ToolTip.Tip="设置">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+       <Path Data="{StaticResource IconObject}" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeJoin="Round"/>
+       <TextBlock Text="设置" FontSize="11" VerticalAlignment="Center"/>
+      </StackPanel>
+     </Button>
+    </StackPanel>
+   </Grid>
   </Border>
-  <Grid Grid.Row="2" ColumnDefinitions="220,4,*" x:Name="WorkspaceGrid">
-   <Border x:Name="SidebarPanel" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,0,1,0" Padding="8,5,8,6">
-    <Grid RowDefinitions="Auto,*,Auto">
-     <Grid ColumnDefinitions="*,Auto,Auto" Height="26">
+  <Grid Grid.Row="2" ColumnDefinitions="244,4,*" x:Name="WorkspaceGrid">
+   <Border x:Name="SidebarPanel" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,0,1,0" Padding="10,9,10,7">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+     <Grid ColumnDefinitions="*,Auto,Auto" Height="26" Margin="2,0,0,0">
       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-       <TextBlock Text="连接" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
-       <Border Background="{DynamicResource SidebarHoverBackground}" CornerRadius="0" Padding="5,0" VerticalAlignment="Center">
-        <TextBlock Text="{Binding Connections.Count}" FontSize="10" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
+       <Path Data="{StaticResource IconDatabase}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeLineCap="Round"/>
+       <TextBlock Text="我的连接" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource WorkspaceText}" VerticalAlignment="Center"/>
+       <Border Background="{DynamicResource AccentSoftBackground}" CornerRadius="8" Padding="6,0" VerticalAlignment="Center">
+        <TextBlock Text="{Binding Connections.Count}" FontSize="10" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
        </Border>
       </StackPanel>
       <Button Grid.Column="1" Classes="sidebarIcon" Click="NewConnection" ToolTip.Tip="新建连接">
@@ -208,13 +329,18 @@
        <Path Data="{StaticResource IconRefresh}" Width="13" Height="13" Stretch="Uniform" StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round"/>
       </Button>
      </Grid>
-     <TreeView Grid.Row="1" x:Name="ObjectTree" Margin="0,3,0,0" ItemsSource="{Binding Nodes}" Tapped="TapNode" PointerPressed="TreePointerPressed">
+     <TextBox Grid.Row="1" x:Name="ObjectFilter" Watermark="搜索连接或对象" TextChanged="FilterObjects" Margin="0,8,0,6">
+      <TextBox.InnerLeftContent>
+       <Path Data="{StaticResource IconSearch}" Width="12" Height="12" Margin="7,0,0,0" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.5" StrokeLineCap="Round"/>
+      </TextBox.InnerLeftContent>
+     </TextBox>
+     <TreeView Grid.Row="2" x:Name="ObjectTree" ItemsSource="{Binding Nodes}" Tapped="TapNode" PointerPressed="TreePointerPressed">
       <TreeView.Styles><Style Selector="TreeViewItem"><Setter Property="IsVisible" Value="{Binding Visible}"/></Style></TreeView.Styles>
       <TreeView.ItemTemplate>
        <TreeDataTemplate DataType="m:ObjectNode" ItemsSource="{Binding Children}">
-        <Grid ColumnDefinitions="18,*,Auto" Height="26" Margin="1,0" VerticalAlignment="Center">
+        <Grid ColumnDefinitions="18,*,Auto" Height="25" Margin="1,0" VerticalAlignment="Center">
          <Grid Grid.Column="0" Width="18" Height="18" VerticalAlignment="Center">
-          <Border IsVisible="{Binding IsConnection}" Width="18" Height="18" CornerRadius="0" Background="{Binding IconColor}">
+          <Border IsVisible="{Binding IsConnection}" Width="18" Height="18" CornerRadius="4" Background="{Binding IconColor}">
            <Path Data="{StaticResource IconDatabase}" Width="11" Height="11" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="White" StrokeThickness="1.5" StrokeLineCap="Round"/>
           </Border>
           <Path IsVisible="{Binding IsDatabase}" Data="{StaticResource IconDatabase}" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeLineCap="Round"/>
@@ -226,104 +352,306 @@
           <Ellipse IsVisible="{Binding IsHint}" Width="3.5" Height="3.5" Fill="{DynamicResource IconMutedBrush}" Opacity="0.45"/>
          </Grid>
          <TextBlock Grid.Column="1" Classes="nodeLabel" Classes.connection="{Binding IsConnection}" Classes.category="{Binding IsCategory}" Classes.hint="{Binding IsHint}" Classes.column="{Binding IsColumn}" Text="{Binding Label}" Margin="6,0,2,0"/>
-         <Ellipse Grid.Column="2" IsVisible="{Binding IsConnection}" Width="5" Height="5" Fill="{Binding StatusColor}" VerticalAlignment="Center" Margin="3,0,2,0" ToolTip.Tip="{Binding StatusTip}"/>
+         <Ellipse Grid.Column="2" IsVisible="{Binding IsConnection}" Width="6" Height="6" Fill="{Binding StatusColor}" VerticalAlignment="Center" Margin="3,0,3,0" ToolTip.Tip="{Binding StatusTip}"/>
         </Grid>
        </TreeDataTemplate>
       </TreeView.ItemTemplate>
       <TreeView.ContextMenu><ContextMenu/></TreeView.ContextMenu>
      </TreeView>
-     <StackPanel Grid.Row="1" IsVisible="{Binding HasNoConnections}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4" Margin="10,0">
-      <Border Width="38" Height="38" CornerRadius="0" Background="{DynamicResource SidebarHoverBackground}" HorizontalAlignment="Center">
-       <Path Data="{StaticResource IconDatabase}" Width="19" Height="19" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeLineCap="Round"/>
+     <StackPanel Grid.Row="2" IsVisible="{Binding HasNoConnections}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="5" Margin="10,0">
+      <Border Width="42" Height="42" CornerRadius="10" Background="{DynamicResource SidebarHoverBackground}" HorizontalAlignment="Center">
+       <Path Data="{StaticResource IconDatabase}" Width="20" Height="20" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeLineCap="Round"/>
       </Border>
-      <TextBlock Text="还没有连接" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+      <TextBlock Text="还没有连接" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
       <TextBlock Text="新建一个连接开始管理数据库" FontSize="11" Foreground="{DynamicResource MutedText}" TextAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Center"/>
-      <Button Content="新建连接" Click="NewConnection" Classes="primary" FontSize="11" Padding="12,4" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+      <Button Content="新建连接" Click="NewConnection" Classes="primary" FontSize="11" Padding="14,4" HorizontalAlignment="Center" Margin="0,3,0,0"/>
      </StackPanel>
-     <TextBox Grid.Row="2" x:Name="ObjectFilter" Watermark="搜索连接 / 对象" TextChanged="FilterObjects" Margin="0,6,0,0">
-      <TextBox.InnerLeftContent>
-       <Path Data="{StaticResource IconSearch}" Width="12" Height="12" Margin="6,0,0,0" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.5" StrokeLineCap="Round"/>
-      </TextBox.InnerLeftContent>
-     </TextBox>
+     <TextBlock Grid.Row="3" Text="双击对象打开数据 · 右键查看更多操作" FontSize="10.5" Foreground="{DynamicResource MutedText}" Opacity="0.75" TextTrimming="CharacterEllipsis" Margin="2,6,0,0"/>
     </Grid>
    </Border>
    <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Background="Transparent" ResizeDirection="Columns"/>
-   <Grid Grid.Column="2" RowDefinitions="Auto,Auto,1*,4,2*,Auto" Margin="6,4,6,4" x:Name="EditorWorkspaceGrid">
-    <Grid x:Name="ConnectionBar" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-     <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="连接" VerticalAlignment="Center" Opacity="0.6"/><ComboBox x:Name="ConnectionPicker" Width="190" MinHeight="28" Padding="7,3" ItemsSource="{Binding Connections}" SelectedItem="{Binding Connection, Mode=TwoWay}" SelectionChanged="ChangeConnection"/><TextBlock Text="数据库" VerticalAlignment="Center" Opacity="0.6"/><ComboBox x:Name="DatabasePicker" Width="170" MinHeight="28" Padding="7,3" PlaceholderText="选择数据库" SelectionChanged="ChangeDatabase"/><Button Content="刷新库" Click="ReloadDatabases" Padding="7,3" MinHeight="26" FontSize="11"/></StackPanel>
-     <TextBlock Grid.Column="1" Text="{Binding ConnectionStatus}" VerticalAlignment="Center" Opacity="0.5" FontSize="11"/>
+   <Grid Grid.Column="2" RowDefinitions="Auto,Auto,1*,4,2*,Auto" Margin="8,6,8,6" x:Name="EditorWorkspaceGrid">
+    <Grid x:Name="ConnectionBar" Grid.Row="0" Margin="0,0,0,6">
+     <Border Classes="pane" Padding="8,4">
+     <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+       <TextBlock Text="连接" FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
+       <ComboBox x:Name="ConnectionPicker" Width="190" ItemsSource="{Binding Connections}" SelectedItem="{Binding Connection, Mode=TwoWay}" SelectionChanged="ChangeConnection"/>
+       <Border Width="1" Height="18" Background="{DynamicResource WorkspaceBorder}" Margin="3,0"/>
+       <TextBlock Text="数据库" FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
+       <ComboBox x:Name="DatabasePicker" Width="170" PlaceholderText="选择数据库" SelectionChanged="ChangeDatabase"/>
+       <Button Classes="icon" Click="ReloadDatabases" ToolTip.Tip="刷新数据库列表">
+        <Path Data="{StaticResource IconRefresh}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round"/>
+       </Button>
+      </StackPanel>
+      <Border Grid.Column="1" Background="{DynamicResource SubtleBackground}" CornerRadius="10" Padding="9,2" VerticalAlignment="Center">
+       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Ellipse Width="6" Height="6" Fill="{DynamicResource StatusAccent}" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding ConnectionStatus}" VerticalAlignment="Center" Foreground="{DynamicResource MutedText}" FontSize="11" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
+       </StackPanel>
+      </Border>
+     </Grid>
+     </Border>
     </Grid>
-    <Grid Grid.Row="1" x:Name="QueryBar" ColumnDefinitions="Auto,*,Auto">
-     <TabStrip x:Name="WorkspaceModeTabs" SelectedIndex="1" SelectionChanged="ChangeWorkspaceMode" Margin="0,0,8,0" MinHeight="28" FontSize="11"><TabStripItem Content="数据表" FontSize="11" Padding="10,3" MinHeight="28"/><TabStripItem Content="SQL 查询" FontSize="11" Padding="10,3" MinHeight="28"/></TabStrip>
-     <ListBox Grid.Column="1" x:Name="QueryTabs" ItemsSource="{Binding Tabs}" SelectedItem="{Binding Tab, Mode=TwoWay}" SelectionChanged="ChangeTab" Height="28" MinHeight="0" Padding="0" FontSize="11" DragDrop.AllowDrop="True" PointerPressed="TabsPointerPressed" PointerMoved="TabsPointerMoved">
+    <Grid Grid.Row="1" x:Name="QueryBar" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,5">
+     <Border Background="{DynamicResource ChipBackground}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" CornerRadius="6" Padding="2" VerticalAlignment="Bottom" Margin="0,0,8,0">
+      <TabStrip x:Name="WorkspaceModeTabs" SelectedIndex="1" SelectionChanged="ChangeWorkspaceMode" MinHeight="26"><TabStripItem Content="数据表" Padding="12,3" MinHeight="26"/><TabStripItem Content="SQL 查询" Padding="12,3" MinHeight="26"/></TabStrip>
+     </Border>
+     <ListBox Grid.Column="1" x:Name="QueryTabs" ItemsSource="{Binding Tabs}" SelectedItem="{Binding Tab, Mode=TwoWay}" SelectionChanged="ChangeTab" Height="34" MinHeight="0" FontSize="11.5" DragDrop.AllowDrop="True" PointerPressed="TabsPointerPressed" PointerMoved="TabsPointerMoved" VerticalAlignment="Bottom">
+      <ListBox.ContextMenu>
+       <ContextMenu>
+        <MenuItem Header="关闭" Click="CloseTab"/>
+        <MenuItem Header="关闭其它页" Click="CloseOtherTabs"/>
+        <MenuItem Header="全部关闭" Click="CloseAllTabs"/>
+       </ContextMenu>
+      </ListBox.ContextMenu>
       <ListBox.Styles>
        <Style Selector="ListBoxItem">
         <Setter Property="MinHeight" Value="0"/>
-        <Setter Property="Padding" Value="8,3"/>
-        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0,0,2,0"/>
        </Style>
       </ListBox.Styles>
       <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
-      <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayTitle}" VerticalAlignment="Center" ToolTip.Tip="{Binding ContextLabel}"/></DataTemplate></ListBox.ItemTemplate>
+      <ListBox.ItemTemplate>
+       <DataTemplate>
+        <Border Height="32" Padding="10,0" ToolTip.Tip="{Binding ContextLabel}">
+         <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+          <Path IsVisible="{Binding IsTableTab}" Data="{StaticResource IconTable}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.3" Margin="0,0,6,0" VerticalAlignment="Center"/>
+          <Path IsVisible="{Binding IsQueryTab}" Data="{StaticResource IconQuery}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.3" Margin="0,0,6,0" VerticalAlignment="Center"/>
+          <TextBlock Grid.Column="1" Text="{Binding DisplayTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="180"/>
+          <Button Grid.Column="2" Classes="tabClose" Click="CloseTabItem" ToolTip.Tip="关闭" Margin="6,0,-2,0">
+           <Path Data="{StaticResource IconClose}" Width="9" Height="9" Stretch="Uniform" StrokeThickness="1.6" StrokeLineCap="Round"/>
+          </Button>
+         </Grid>
+        </Border>
+       </DataTemplate>
+      </ListBox.ItemTemplate>
      </ListBox>
-     <Button Grid.Column="2" Content="关闭查询" ToolTip.Tip="关闭当前查询" Click="CloseTab" FontSize="11" Padding="8,3" MinHeight="0" Height="28"/>
+     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Bottom">
+      <Button Classes="icon" x:Name="NewQueryTabButton" Click="NewQuery" ToolTip.Tip="新建查询页" Margin="4,0,0,0">
+       <Path Data="{StaticResource IconPlus}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.6" StrokeLineCap="Round"/>
+      </Button>
+      <Button Classes="icon" Click="CloseTab" ToolTip.Tip="关闭当前查询">
+       <Path Data="{StaticResource IconClose}" Width="11" Height="11" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.6" StrokeLineCap="Round"/>
+      </Button>
+     </StackPanel>
     </Grid>
-    <Border x:Name="EditorPane" Background="{DynamicResource PanelBackground}" CornerRadius="0" Grid.Row="2" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" Padding="2" Margin="0,3,0,0">
-     <edit:TextEditor x:Name="SqlEditor" ShowLineNumbers="True" FontFamily="Cascadia Code,Consolas,monospace" FontSize="14" Background="Transparent">
-      <edit:TextEditor.ContextMenu><ContextMenu><MenuItem x:Name="ExecuteEditorSqlMenu" Header="执行 SQL" Click="RunSql"/><MenuItem x:Name="ExecuteSelectionEditorSqlMenu" Header="执行选中 SQL" Click="RunSelectionSql"/><MenuItem x:Name="FormatEditorSqlMenu" Header="格式化 SQL" Click="FormatSql"/></ContextMenu></edit:TextEditor.ContextMenu>
+    <Border x:Name="EditorPane" Grid.Row="2" Background="{DynamicResource PanelBackground}" CornerRadius="4" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" ClipToBounds="True" Margin="0,0,0,0">
+     <edit:TextEditor x:Name="SqlEditor" ShowLineNumbers="True" FontFamily="Cascadia Code,Consolas,monospace" FontSize="14" Background="Transparent" Padding="4,4,0,0">
+      <edit:TextEditor.ContextMenu>
+       <ContextMenu>
+        <MenuItem x:Name="ExecuteEditorSqlMenu" Header="执行 SQL" Click="RunSql"/>
+        <MenuItem x:Name="ExecuteSelectionEditorSqlMenu" Header="执行选中 SQL" Click="RunSelectionSql"/>
+        <MenuItem x:Name="ExecuteCurrentEditorSqlMenu" Header="执行当前语句" Click="RunCurrentStatement"/>
+        <Separator/>
+        <MenuItem x:Name="FormatEditorSqlMenu" Header="格式化 SQL" Click="FormatSql"/>
+       </ContextMenu>
+      </edit:TextEditor.ContextMenu>
      </edit:TextEditor>
     </Border>
     <GridSplitter x:Name="EditorSplitter" Grid.Row="3" ResizeDirection="Rows" HorizontalAlignment="Stretch" Background="{DynamicResource WorkspaceBorder}"/>
     <Grid Grid.Row="4" x:Name="ResultsPane" RowDefinitions="Auto,Auto,*,Auto">
-     <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4">
-      <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="查询结果" FontWeight="SemiBold" VerticalAlignment="Center"/><ComboBox x:Name="ResultPicker" MinWidth="170" SelectionChanged="ChangeResult"/></StackPanel>
-      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5"><Button Content="字段详情" Click="ViewCell" Padding="7,4"/><Button Content="复制单元格" Click="CopyCell" Padding="7,4"/><Button Content="复制行" Click="CopyRow" Padding="7,4"/><TextBlock x:Name="RowCount" Text="0 行" VerticalAlignment="Center" Margin="8,0" Opacity="0.6"/></StackPanel>
-     </Grid>
-     <WrapPanel x:Name="EditToolbar" Grid.Row="1" Margin="0,0,0,4">
+     <Border Classes="pane" BorderThickness="1" Padding="8,4" Margin="0,5,0,0">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+       <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+        <Path Data="{StaticResource IconTable}" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.3" StrokeJoin="Round"/>
+        <TextBlock Text="结果" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        <ComboBox x:Name="ResultPicker" MinWidth="180" SelectionChanged="ChangeResult"/>
+       </StackPanel>
+       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" Margin="12,0,8,0">
+        <TextBox x:Name="ResultSearch" Width="240" Watermark="在结果中搜索（空格分隔多个关键词）" TextChanged="ResultSearchChanged" KeyDown="ResultSearchKeyDown">
+         <TextBox.InnerLeftContent>
+          <Path Data="{StaticResource IconSearch}" Width="12" Height="12" Margin="9,0,0,0" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.5" StrokeLineCap="Round"/>
+         </TextBox.InnerLeftContent>
+        </TextBox>
+        <Button x:Name="ClearResultSearchButton" Classes="icon" Click="ClearResultSearch" ToolTip.Tip="清除结果内筛选" IsVisible="False">
+         <Path Data="{StaticResource IconClose}" Width="10" Height="10" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.6" StrokeLineCap="Round"/>
+        </Button>
+       </StackPanel>
+       <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4">
+        <Button Classes="icon" Click="ViewCell" ToolTip.Tip="查看字段详情">
+         <Path Data="{StaticResource IconObject}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.4" StrokeJoin="Round"/>
+        </Button>
+        <Button Classes="icon" Click="CopyCell" ToolTip.Tip="复制单元格">
+         <Path Data="{StaticResource IconColumn}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.4" StrokeJoin="Round"/>
+        </Button>
+        <Button Classes="icon" Click="CopyRow" ToolTip.Tip="复制整行">
+         <Path Data="{StaticResource IconTable}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.4" StrokeJoin="Round"/>
+        </Button>
+        <Border Background="{DynamicResource ChipBackground}" CornerRadius="9" Padding="8,2" Margin="8,0,2,0" VerticalAlignment="Center">
+         <TextBlock x:Name="RowCount" Text="0 行" VerticalAlignment="Center" Foreground="{DynamicResource MutedText}" FontSize="10.5"/>
+        </Border>
+       </StackPanel>
+      </Grid>
+     </Border>
+     <WrapPanel x:Name="EditToolbar" Grid.Row="1" Margin="0,5,0,0">
       <Button x:Name="AddRowButton" Content="＋ 新增行" Click="AddDataRow" Margin="0,0,5,0" Padding="8,4"/>
       <Button x:Name="DeleteRowButton" Content="删除选中行" Click="DeleteDataRow" Margin="0,0,5,0" Padding="8,4"/>
       <Button x:Name="NullCellButton" Content="设为 NULL" Click="SetCellNull" Margin="0,0,5,0" Padding="8,4"/>
       <Button x:Name="CommitEditsButton" Classes="primary" Content="提交变更" Click="CommitDataEdits" Margin="0,0,5,0" Padding="8,4"/>
       <Button x:Name="RevertEditsButton" Content="撤销变更" Click="RevertDataEdits" Margin="0,0,8,0" Padding="8,4"/>
-      <TextBlock x:Name="EditStatus" Text="只读结果" VerticalAlignment="Center" Opacity="0.65" FontSize="11"/>
+      <TextBlock x:Name="EditStatus" Text="只读结果" VerticalAlignment="Center" Foreground="{DynamicResource MutedText}" FontSize="11"/>
      </WrapPanel>
-     <DataGrid Grid.Row="2" x:Name="Results" IsReadOnly="True" AutoGenerateColumns="False" CanUserResizeColumns="True" CanUserSortColumns="True" GridLinesVisibility="Horizontal" SelectionMode="Single" BorderThickness="1" BorderBrush="{DynamicResource WorkspaceBorder}"/>
-     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="5" Margin="0,4,0,0">
-      <TextBox x:Name="WhereFilter" Width="300" Watermark="WHERE 条件，例如 id &gt; 100（Enter 筛选）" KeyDown="FilterKeyDown"/>
-      <Button x:Name="ApplyFilterButton" Content="筛选" Click="ApplyFilter"/><Button x:Name="PreviousPageButton" Content="上一页" Click="PreviousPage"/><TextBlock x:Name="PageLabel" Text="第 1 页" VerticalAlignment="Center"/><Button x:Name="NextPageButton" Content="下一页" Click="NextPage"/>
-      <ComboBox x:Name="PageSize" SelectedIndex="2" Width="85"><ComboBoxItem Content="20"/><ComboBoxItem Content="50"/><ComboBoxItem Content="100"/><ComboBoxItem Content="500"/></ComboBox>
-     </StackPanel>
-    </Grid>
-    <Grid x:Name="StartPanel" Grid.Row="1" Grid.RowSpan="4" IsVisible="False" Background="{DynamicResource WorkspaceBackground}">
-     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" MaxWidth="380" Margin="24">
-      <Image Source="/Assets/AppIcon.png" Width="56" Height="56" HorizontalAlignment="Center" Opacity="0.85"/>
-      <TextBlock Text="无信息" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,6,0,0"/>
-      <TextBlock Text="从左侧选择连接或对象，也可以直接新建查询。" FontSize="12" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center"/>
-      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,10,0,0">
-       <Button Classes="primary" Content="新建查询" Click="NewQuery" Padding="16,6"/>
-       <Button Content="新建连接" Click="NewConnection" Padding="16,6"/>
+     <Border Grid.Row="2" Classes="pane" Margin="0,5,0,0" ClipToBounds="True">
+      <DataGrid x:Name="Results" IsReadOnly="True" AutoGenerateColumns="False" CanUserResizeColumns="True" CanUserSortColumns="True" GridLinesVisibility="Horizontal" SelectionMode="Single" BorderThickness="0" HeadersVisibility="All" RowHeaderWidth="46" ColumnHeaderHeight="30" RowHeight="27">
+       <DataGrid.ContextMenu>
+        <ContextMenu>
+         <MenuItem Header="复制单元格" Click="CopyCell"/>
+         <MenuItem Header="复制整行" Click="CopyRow"/>
+         <Separator/>
+         <MenuItem Header="复制为 INSERT" Click="CopyRowAsInsert"/>
+         <MenuItem Header="复制为 UPDATE" Click="CopyRowAsUpdate"/>
+         <Separator/>
+         <MenuItem Header="字段详情" Click="ViewCell"/>
+         <Separator/>
+         <MenuItem Header="按此单元格筛选" Click="FilterResultByCell"/>
+         <MenuItem Header="清除结果内筛选" Click="ClearResultSearch"/>
+        </ContextMenu>
+       </DataGrid.ContextMenu>
+      </DataGrid>
+     </Border>
+     <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,5,0,0">
+      <StackPanel Orientation="Horizontal" Spacing="5">
+       <TextBox x:Name="WhereFilter" Width="310" Watermark="WHERE 条件，例如 id &gt; 100（Enter 筛选）" KeyDown="FilterKeyDown"/>
+       <Button x:Name="ApplyFilterButton" Content="筛选" Click="ApplyFilter"/>
       </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
+       <Button x:Name="PreviousPageButton" Classes="icon" Click="PreviousPage" ToolTip.Tip="上一页">
+        <Path Data="M15 6L9 12L15 18" Width="11" Height="11" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"/>
+       </Button>
+       <TextBlock x:Name="PageLabel" Text="第 1 页" VerticalAlignment="Center" Foreground="{DynamicResource MutedText}" FontSize="11" Margin="2,0"/>
+       <Button x:Name="NextPageButton" Classes="icon" Click="NextPage" ToolTip.Tip="下一页">
+        <Path Data="M9 6L15 12L9 18" Width="11" Height="11" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"/>
+       </Button>
+       <ComboBox x:Name="PageSize" SelectedIndex="2" Width="82" Margin="4,0,0,0"><ComboBoxItem Content="20"/><ComboBoxItem Content="50"/><ComboBoxItem Content="100"/><ComboBoxItem Content="500"/></ComboBox>
+      </StackPanel>
+     </Grid>
+    </Grid>
+    <Grid x:Name="StartPanel" Grid.Row="1" Grid.RowSpan="4" IsVisible="False" Background="{DynamicResource StartPanelBackground}">
+     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7" MaxWidth="600" Margin="24">
+      <Image Source="/Assets/AppIcon.png" Width="64" Height="64" HorizontalAlignment="Center" Opacity="0.92"/>
+      <TextBlock Text="欢迎使用 DbPilot" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+      <TextBlock Text="连接数据库、浏览表数据，或在 SQL 编辑器中开始工作。" FontSize="12" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center"/>
+      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center" Margin="0,16,0,10">
+       <Button Classes="quickCard" Click="NewConnection" ToolTip.Tip="配置新的数据库连接">
+        <StackPanel Spacing="7">
+         <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource AccentSoftBackground}" HorizontalAlignment="Left">
+          <Path Data="{StaticResource IconPlus}" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.7" StrokeLineCap="Round"/>
+         </Border>
+         <TextBlock Text="新建连接" FontSize="12.5" FontWeight="SemiBold"/>
+         <TextBlock Text="MySQL · PostgreSQL · SQL Server · TDengine" FontSize="10.5" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+        </StackPanel>
+       </Button>
+       <Button Classes="quickCard" Click="NewQuery" ToolTip.Tip="打开新的 SQL 查询页">
+        <StackPanel Spacing="7">
+         <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource AccentSoftBackground}" HorizontalAlignment="Left">
+          <Path Data="{StaticResource IconQuery}" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" StrokeJoin="Round"/>
+         </Border>
+         <TextBlock Text="新建查询" FontSize="12.5" FontWeight="SemiBold"/>
+         <TextBlock Text="编写并执行 SQL，支持补全与多结果集" FontSize="10.5" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+        </StackPanel>
+       </Button>
+       <Button Classes="quickCard" Click="OpenScript" ToolTip.Tip="从磁盘打开 SQL 脚本">
+        <StackPanel Spacing="7">
+         <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource AccentSoftBackground}" HorizontalAlignment="Left">
+          <Path Data="{StaticResource IconFolder}" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" StrokeJoin="Round"/>
+         </Border>
+         <TextBlock Text="打开脚本" FontSize="12.5" FontWeight="SemiBold"/>
+         <TextBlock Text="加载已有 .sql 文件继续编辑" FontSize="10.5" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+        </StackPanel>
+       </Button>
+      </StackPanel>
+      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" CornerRadius="6" Padding="14,9" HorizontalAlignment="Center">
+       <StackPanel Orientation="Horizontal" Spacing="18">
+        <TextBlock Text="Ctrl+R 执行 SQL" FontSize="10.5" Foreground="{DynamicResource MutedText}"/>
+        <TextBlock Text="Ctrl+S 保存脚本" FontSize="10.5" Foreground="{DynamicResource MutedText}"/>
+        <TextBlock Text="F5 刷新对象" FontSize="10.5" Foreground="{DynamicResource MutedText}"/>
+       </StackPanel>
+      </Border>
      </StackPanel>
     </Grid>
-    <Border x:Name="TableCatalogPanel" Grid.Row="2" Grid.RowSpan="3" IsVisible="False" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" Padding="8">
-     <Grid RowDefinitions="Auto,*,Auto">
-      <Grid ColumnDefinitions="*,240,Auto" Margin="0,0,0,6">
-       <TextBlock x:Name="TableCatalogTitle" Text="数据表" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
-       <TextBox Grid.Column="1" x:Name="TableCatalogFilter" Watermark="筛选表名 / 架构 / 类型…" TextChanged="FilterTableCatalog" KeyDown="CatalogKeyDown"/>
-       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="6,0,0,0"><Button Content="×" Click="ClearCatalogFilter" ToolTip.Tip="清空筛选"/><Button Content="刷新" Click="ReloadTableCatalog"/><Button Content="返回 SQL" Click="HideTableCatalog"/></StackPanel>
+    <Border x:Name="TableCatalogPanel" Grid.Row="2" Grid.RowSpan="3" IsVisible="False" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+     <Grid RowDefinitions="Auto,Auto,*,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="10,8,8,6">
+       <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+        <Path Data="{StaticResource IconTable}" Width="15" Height="15" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.4" StrokeJoin="Round"/>
+        <TextBlock x:Name="TableCatalogTitle" Text="数据表" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+       </StackPanel>
+       <TextBox Grid.Column="1" x:Name="TableCatalogFilter" Watermark="筛选表名 / 架构 / 类型…" TextChanged="FilterTableCatalog" KeyDown="CatalogKeyDown" MaxWidth="320" HorizontalAlignment="Right" Margin="12,0"/>
+       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Click="ClearCatalogFilter" ToolTip.Tip="清空筛选">
+         <Path Data="{StaticResource IconClose}" Width="11" Height="11" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.6" StrokeLineCap="Round"/>
+        </Button>
+        <Button Classes="icon" Click="ReloadTableCatalog" ToolTip.Tip="刷新表列表">
+         <Path Data="{StaticResource IconRefresh}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round"/>
+        </Button>
+        <Button Classes="icon" Click="HideTableCatalog" ToolTip.Tip="返回 SQL 查询">
+         <Path Data="{StaticResource IconClose}" Width="12" Height="12" Stretch="Uniform" Stroke="{DynamicResource MutedText}" StrokeThickness="1.6" StrokeLineCap="Round"/>
+        </Button>
+       </StackPanel>
       </Grid>
-      <DataGrid Grid.Row="1" x:Name="TableCatalogGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True" DoubleTapped="OpenCatalogTable" KeyDown="CatalogKeyDown">
+      <Border Grid.Row="1" Classes="catalogActions">
+       <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="toolbar" Click="OpenCatalogSelection" ToolTip.Tip="打开选中表的数据">
+         <StackPanel Orientation="Horizontal" Spacing="5">
+          <Path Data="{StaticResource IconTable}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeJoin="Round"/>
+          <TextBlock Text="打开表" FontSize="11"/>
+         </StackPanel>
+        </Button>
+        <Button Classes="toolbar" Click="OpenCatalogDesign" ToolTip.Tip="设计选中表的结构">
+         <StackPanel Orientation="Horizontal" Spacing="5">
+          <Path Data="{StaticResource IconColumn}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeJoin="Round"/>
+          <TextBlock Text="设计表" FontSize="11"/>
+         </StackPanel>
+        </Button>
+        <Button Classes="toolbar" Click="CreateTable" ToolTip.Tip="新建数据表">
+         <StackPanel Orientation="Horizontal" Spacing="5">
+          <Path Data="{StaticResource IconPlus}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.5" StrokeLineCap="Round"/>
+          <TextBlock Text="新建表" FontSize="11"/>
+         </StackPanel>
+        </Button>
+        <Button Classes="toolbar" Click="DropCatalogSelection" ToolTip.Tip="删除选中表">
+         <StackPanel Orientation="Horizontal" Spacing="5">
+          <Path Data="{StaticResource IconClose}" Width="12" Height="12" Stretch="Uniform" Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.5" StrokeLineCap="Round"/>
+          <TextBlock Text="删除表" FontSize="11" Foreground="{DynamicResource DangerBrush}"/>
+         </StackPanel>
+        </Button>
+        <Border Width="1" Height="20" Background="{DynamicResource WorkspaceBorder}" Margin="5,0" VerticalAlignment="Center"/>
+        <Button Classes="toolbar" Click="OpenCatalogImport" ToolTip.Tip="从 CSV 导入数据">
+         <StackPanel Orientation="Horizontal" Spacing="5">
+          <Path Data="{StaticResource IconDownload}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeLineCap="Round" StrokeJoin="Round"/>
+          <TextBlock Text="导入向导" FontSize="11"/>
+         </StackPanel>
+        </Button>
+        <Button Classes="toolbar" Click="OpenCatalogExport" ToolTip.Tip="导出整表数据">
+         <StackPanel Orientation="Horizontal" Spacing="5">
+          <Path Data="{StaticResource IconUpload}" Width="13" Height="13" Stretch="Uniform" Stroke="{DynamicResource IconMutedBrush}" StrokeThickness="1.4" StrokeLineCap="Round" StrokeJoin="Round"/>
+          <TextBlock Text="导出向导" FontSize="11"/>
+         </StackPanel>
+        </Button>
+       </StackPanel>
+      </Border>
+      <DataGrid Grid.Row="2" x:Name="TableCatalogGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True" DoubleTapped="OpenCatalogTable" KeyDown="CatalogKeyDown" BorderThickness="0" HeadersVisibility="Column" ColumnHeaderHeight="30" RowHeight="28">
        <DataGrid.ContextMenu><ContextMenu/></DataGrid.ContextMenu>
        <DataGrid.Columns><DataGridTextColumn Header="表名" Binding="{Binding Name}" Width="*"/><DataGridTextColumn Header="架构" Binding="{Binding Schema}" Width="160"/><DataGridTextColumn Header="类型" Binding="{Binding Kind}" Width="120"/></DataGrid.Columns>
       </DataGrid>
-      <TextBlock Grid.Row="2" x:Name="TableCatalogSummary" Margin="0,6,0,0" Opacity="0.65" TextWrapping="Wrap"/>
+      <Border Grid.Row="3" Background="{DynamicResource SubtleBackground}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,1,0,0" Padding="10,6">
+       <TextBlock x:Name="TableCatalogSummary" TextWrapping="Wrap" Foreground="{DynamicResource MutedText}" FontSize="11"/>
+      </Border>
      </Grid>
     </Border>
-    <Expander x:Name="TaskLogPanel" Grid.Row="5" Header="消息与任务日志（点击展开）" IsExpanded="False" MaxHeight="130" MinHeight="0" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-     <Grid ColumnDefinitions="*,Auto"><ListBox ItemsSource="{Binding Logs}" FontFamily="Consolas,monospace" FontSize="11" MaxHeight="105"/><Button Grid.Column="1" Content="清空" Click="ClearLogs" VerticalAlignment="Top"/></Grid>
+    <Expander x:Name="TaskLogPanel" Grid.Row="5" Header="消息与任务日志" IsExpanded="False" MaxHeight="140" MinHeight="0" Padding="0" Margin="0,5,0,0">
+     <Grid ColumnDefinitions="*,Auto"><ListBox ItemsSource="{Binding Logs}" FontFamily="Consolas,monospace" FontSize="11" MaxHeight="108"/><Button Grid.Column="1" Content="清空" Click="ClearLogs" VerticalAlignment="Top" Margin="6,0,0,0"/></Grid>
     </Expander>
    </Grid>
   </Grid>
-  <Border Grid.Row="3" Background="{DynamicResource StatusBackground}" Padding="10,3"><Grid ColumnDefinitions="*,Auto"><TextBlock Foreground="{DynamicResource StatusText}" Text="{Binding Status}" FontSize="11" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="AppVersionText" Grid.Column="1" Foreground="{DynamicResource StatusText}" Opacity="0.8" Text="DbPilot 0.3 · 数据库工具" FontSize="11"/></Grid></Border>
+  <Border Grid.Row="3" Background="{DynamicResource StatusBackground}" BorderBrush="{DynamicResource StatusBorder}" BorderThickness="0,1,0,0" Padding="12,4">
+   <Grid ColumnDefinitions="Auto,*,Auto">
+    <Ellipse Width="6" Height="6" Fill="{DynamicResource StatusAccent}" VerticalAlignment="Center" Margin="0,0,9,0"/>
+    <TextBlock Grid.Column="1" Foreground="{DynamicResource StatusText}" Text="{Binding Status}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+    <TextBlock x:Name="AppVersionText" Grid.Column="2" Foreground="{DynamicResource StatusText}" Opacity="0.72" Text="DbPilot 0.3 · 数据库工具" FontSize="10.5" VerticalAlignment="Center" Margin="10,0,0,0"/>
+   </Grid>
+  </Border>
  </Grid>
 </Window>

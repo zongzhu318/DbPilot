@@ -32,6 +32,36 @@ internal static class AdvancedChecks
         check(csv.Count==3&&csv[1][1]=="line1\nline2 \"quoted\""&&csv[1][2]=="","CSV multiline quoted fields and trailing empties");
         var mapped=new List<object?[]>();await foreach(var row in CsvData.MapAsync(new StringReader("name,id\nhello,7\n\\N,8"),true,[1,0],[new("id","int",false,true,"",""),new("name","text",true,false,"","")],DatabaseKind.PostgreSQL,default))mapped.Add(row);
         check(mapped.Count==2&&Convert.ToInt32(mapped[0][0])==7&&mapped[1][1] is null,"CSV mapping reorders and converts values with NULL sentinel");
+        static async IAsyncEnumerable<object?[]> BookRows(){yield return [1,"中文",12.5m,new DateTime(2026,1,2,3,4,5),true,null];yield return [2,"plain",-1.25,new DateTime(2026,2,3),false,"x"];await Task.CompletedTask;}
+        await using var book=new MemoryStream();
+        var written=await XlsxWorkbook.WriteAsync(book,["id","text","amount","when","flag","empty"],BookRows(),"结果",default);
+        book.Position=0;var sheet=new List<string[]>();await foreach(var row in XlsxWorkbook.ReadAsync(book,default))sheet.Add(row);
+        check(written==2&&sheet.Count==3&&sheet[0].Length==6&&sheet[0][0]=="id"&&sheet[1][1]=="中文"&&sheet[1].Length==5&&sheet[2][5]=="x","Excel workbook round trip preserves header, unicode, trailing omissions and row count");
+        check(sheet[1][2]=="12.5"&&sheet[1][4]=="TRUE"&&sheet[1][3]=="2026-01-02 03:04:05.000","Excel workbook preserves numbers, booleans and dates");
+        await using var exportedBook=new MemoryStream();
+        await ResultExport.WriteAsync(new(["id","name"],[new object?[]{1,"第一行"},new object?[]{2,null}],0,false),exportedBook,"xlsx",null,DatabaseKind.MySQL,null,default);
+        exportedBook.Position=0;var exportedRows=new List<string[]>();await foreach(var row in XlsxWorkbook.ReadAsync(exportedBook,default))exportedRows.Add(row);
+        check(exportedRows.Count==3&&exportedRows[2][0]=="2"&&exportedRows[2].Length==1,"result export writes Excel workbooks and leaves null cells empty");
+        static async IAsyncEnumerable<string[]> BlankRows(){yield return ["id","label"];yield return ["","x"];await Task.CompletedTask;}
+        var blankMapped=new List<object?[]>();
+        await foreach(var row in CsvData.MapAsync(BlankRows(),true,[0,1],[new("id","int",true,false,"",""),new("label","text",true,false,"","")],DatabaseKind.PostgreSQL,true,default))blankMapped.Add(row);
+        check(blankMapped.Count==1&&blankMapped[0][0] is null&&(string?)blankMapped[0][1]=="x","blank Excel cells import as NULL while filled cells convert");
+        var filterTable=new System.Data.DataTable();filterTable.CaseSensitive=false;
+        filterTable.Columns.Add("c0",typeof(string));filterTable.Columns.Add("c1",typeof(int));filterTable.Columns.Add("c2",typeof(DateTime));
+        filterTable.Rows.Add("Alice",1,new DateTime(2026,10,18,12,0,0));filterTable.Rows.Add("bob",22,new DateTime(2026,1,2));filterTable.Rows.Add("100% done [x]",333,new DateTime(2026,10,19));filterTable.Rows.Add(DBNull.Value,4,new DateTime(2025,5,6));
+        var filterView=filterTable.DefaultView;
+        filterView.RowFilter=ResultFilter.Search(filterTable,"alice 1");
+        check(filterView.Count==1&&((string)filterView[0]["c0"])=="Alice","result search combines keywords with case-insensitive matching across string and numeric columns");
+        filterView.RowFilter=ResultFilter.Search(filterTable,"100%");
+        check(filterView.Count==1&&((string)filterView[0]["c0"]).StartsWith("100%"),"result search treats LIKE wildcards as literal text");
+        filterView.RowFilter=ResultFilter.Search(filterTable,"[x]");
+        check(filterView.Count==1,"result search escapes bracket characters");
+        check(ResultFilter.Exact(filterTable,0,"bob") is {} exactString&&ResultFilter.Exact(filterTable,1,22) is {} exactNumber&&ResultFilter.Exact(filterTable,2,new DateTime(2026,10,18,12,0,0)) is {} exactDate&&ResultFilter.Exact(filterTable,0,null) is {} exactNull,"cell filter builds typed exact predicates");
+        filterView.RowFilter=ResultFilter.Exact(filterTable,0,null)!;
+        check(filterView.Count==1,"cell filter isolates NULL values");
+        filterView.RowFilter=ResultFilter.Exact(filterTable,2,new DateTime(2026,10,18,12,0,0))!;
+        check(filterView.Count==1,"cell filter matches date values exactly");
+        check(ResultFilter.Exact(filterTable,0,new byte[]{1}) is null,"cell filter rejects binary values");
         var fake=new Fake();var outcomes=await ScriptRunner.RunAsync(fake,new StringReader("SELECT 1; BAD; SELECT 2;"),DatabaseKind.PostgreSQL,false,10,null,default);
         check(fake.Executed.Count==2&&outcomes.Last().Error=="simulated failure","script stops before later mutation after batch error");
         fake.Executed.Clear();outcomes=await ScriptRunner.RunAsync(fake,new StringReader("SELECT 1; BAD; SELECT 2;"),DatabaseKind.PostgreSQL,true,10,null,default);
@@ -47,6 +77,29 @@ internal static class AdvancedChecks
         await using var pg=DbProviderFactory.Create(new(){Kind=DatabaseKind.PostgreSQL});
         var ddl=SchemaTools.CreateTable(pg,DatabaseKind.PostgreSQL,new("db","public","items","表"),[new("id","integer",false,true,"","",IsGenerated:true,IsIdentity:true),new("doubled","integer",true,false,"","",IsGenerated:true,GenerationExpression:"id * 2",Stored:true)]);
         check(ddl.Contains("GENERATED BY DEFAULT AS IDENTITY")&&ddl.Contains("GENERATED ALWAYS AS (id * 2) STORED"),"DDL distinguishes identity and computed expressions");
+        await using var pgDdl=DbProviderFactory.Create(new(){Kind=DatabaseKind.PostgreSQL});
+        await using var myDdl=DbProviderFactory.Create(new(){Kind=DatabaseKind.MySQL});
+        await using var msDdl=DbProviderFactory.Create(new(){Kind=DatabaseKind.SqlServer});
+        var ddlTable=new DbObject("report","public","items","表");var ddlCopy=ddlTable with{Name="items_copy"};
+        check(DatabaseDdl.DropDatabase(pgDdl,"report")=="DROP DATABASE \"report\";","drop database quotes the database name");
+        check(DatabaseDdl.RenameDatabase(pgDdl,DatabaseKind.PostgreSQL,"old","new")=="ALTER DATABASE \"old\" RENAME TO \"new\";"&&DatabaseDdl.RenameDatabase(msDdl,DatabaseKind.SqlServer,"old","new")=="ALTER DATABASE [old] MODIFY NAME = [new];","database rename follows provider syntax");
+        bool unsupported=false;try{DatabaseDdl.RenameDatabase(myDdl,DatabaseKind.MySQL,"old","new");}catch(NotSupportedException){unsupported=true;}
+        check(unsupported,"database rename reports unsupported providers clearly");
+        check(DatabaseDdl.TruncateTable(pgDdl,DatabaseKind.PostgreSQL,ddlTable).EndsWith("RESTART IDENTITY;")&&DatabaseDdl.TruncateTable(myDdl,DatabaseKind.MySQL,ddlTable)=="TRUNCATE TABLE `report`.`items`;","truncate table restarts identity only for PostgreSQL");
+        unsupported=false;try{DatabaseDdl.TruncateTable(pgDdl,DatabaseKind.TDengine,ddlTable);}catch(NotSupportedException){unsupported=true;}
+        check(unsupported,"truncate table is rejected for TDengine");
+        check(DatabaseDdl.CopyTable(myDdl,DatabaseKind.MySQL,ddlTable,ddlCopy,true).Contains("INSERT INTO")&&!DatabaseDdl.CopyTable(myDdl,DatabaseKind.MySQL,ddlTable,ddlCopy,false).Contains("INSERT"),"copy table includes existing rows only when requested");
+        check(DatabaseDdl.CopyTable(pgDdl,DatabaseKind.PostgreSQL,ddlTable,ddlCopy,false).Contains("INCLUDING ALL")&&DatabaseDdl.CopyTable(msDdl,DatabaseKind.SqlServer,ddlTable,ddlCopy,false).StartsWith("SELECT TOP 0 * INTO"),"copy table preserves advanced structure for PostgreSQL and SQL Server");
+        check(DatabaseDdl.Maintenance(myDdl,DatabaseKind.MySQL,ddlTable,"optimize")=="OPTIMIZE TABLE `report`.`items`;"&&DatabaseDdl.Maintenance(pgDdl,DatabaseKind.PostgreSQL,ddlTable,"vacuum")=="VACUUM \"public\".\"items\";"&&DatabaseDdl.Maintenance(msDdl,DatabaseKind.SqlServer,ddlTable,"statistics")=="UPDATE STATISTICS [public].[items];"&&DatabaseDdl.Maintenance(pgDdl,DatabaseKind.TDengine,ddlTable,"analyze") is null,"table maintenance maps actions per provider");
+        var dumpTable=new DbObject("db","public","items","表");var dumpProfile=new ConnectionProfile{Kind=DatabaseKind.PostgreSQL,Database="db"};var dumpFake=new Fake{HasColumns=true};
+        await using var dumpStructure=new MemoryStream();await DataTransfer.DumpAsync(dumpFake,dumpProfile,[dumpTable],dumpStructure,true,false,null,default);
+        var structureDump=Encoding.UTF8.GetString(dumpStructure.ToArray());
+        check(structureDump.Contains("CREATE TABLE")&&!structureDump.Contains("INSERT INTO"),"structure-only dump writes DDL without row data");
+        await using var dumpData=new MemoryStream();await DataTransfer.DumpAsync(dumpFake,dumpProfile,[dumpTable],dumpData,false,true,null,default);
+        var dataDump=Encoding.UTF8.GetString(dumpData.ToArray());
+        check(dataDump.Contains("INSERT INTO")&&!dataDump.Contains("CREATE TABLE"),"data-only dump writes rows without DDL");
+        bool emptyDump=false;try{await DataTransfer.DumpAsync(dumpFake,dumpProfile,[dumpTable],new MemoryStream(),false,false,null,default);}catch(ArgumentException){emptyDump=true;}
+        check(emptyDump,"dump rejects selecting neither structure nor data");
         var sshStore=new WorkspaceStore(Path.Combine(folder,"ssh"));var profile=new ConnectionProfile{Password="database-secret",Ssh=new(){Password="ssh-secret",Passphrase="key-secret"}};await sshStore.SaveConnectionsAsync([profile]);
         var disk=await File.ReadAllTextAsync(Path.Combine(folder,"ssh","connections.json"));var loaded=(await sshStore.LoadConnectionsAsync())[0];
         check(!disk.Contains("ssh-secret")&&!disk.Contains("key-secret")&&loaded.Ssh.Password=="ssh-secret"&&loaded.Ssh.Passphrase=="key-secret"&&profile.Ssh.Password=="ssh-secret","SSH password and key passphrase are encrypted without mutating live settings");
@@ -85,12 +138,13 @@ internal static class AdvancedChecks
     private sealed class Fake : IDbProvider
     {
         public List<string> Executed { get; }=[];
+        public bool HasColumns { get; init; }
         public Task<QueryResult> QueryAsync(string sql,int limit,CancellationToken ct){Executed.Add(sql);if(sql.Contains("BAD"))throw new InvalidOperationException("simulated failure");return Task.FromResult(new QueryResult(["value"],[new object?[]{sql}],0,false));}
         public async IAsyncEnumerable<QueryResult> StreamAsync(string sql,int batchSize,[EnumeratorCancellation]CancellationToken ct){yield return new(["value"],[new object?[]{"first"}],0,false);await Task.Yield();ct.ThrowIfCancellationRequested();yield return new(["value"],[new object?[]{"second"}],0,false);}
         public Task TestAsync(CancellationToken ct)=>Task.CompletedTask;
         public Task<IReadOnlyList<string>> DatabasesAsync(CancellationToken ct)=>Task.FromResult<IReadOnlyList<string>>([]);
         public Task<IReadOnlyList<DbObject>> ObjectsAsync(string database,CancellationToken ct)=>Task.FromResult<IReadOnlyList<DbObject>>([]);
-        public Task<IReadOnlyList<ColumnInfo>> ColumnsAsync(DbObject table,CancellationToken ct)=>Task.FromResult<IReadOnlyList<ColumnInfo>>([]);
+        public Task<IReadOnlyList<ColumnInfo>> ColumnsAsync(DbObject table,CancellationToken ct)=>Task.FromResult<IReadOnlyList<ColumnInfo>>(HasColumns?[new("value","text",true,false,"","")]:[]);
         public Task<IReadOnlyList<IndexInfo>> IndexesAsync(DbObject table,CancellationToken ct)=>Task.FromResult<IReadOnlyList<IndexInfo>>([]);
         public string Quote(string name)=>"\""+name.Replace("\"","\"\"")+"\"";
         public string Qualified(DbObject table)=>Quote(table.Schema)+"."+Quote(table.Name);

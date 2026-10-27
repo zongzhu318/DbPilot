@@ -2,8 +2,8 @@
   <Application.Resources>
     <ResourceDictionary>
       <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
-      <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
-      <CornerRadius x:Key="OverlayCornerRadius">0</CornerRadius>
+      <CornerRadius x:Key="ControlCornerRadius">4</CornerRadius>
+      <CornerRadius x:Key="OverlayCornerRadius">6</CornerRadius>
 
       <!-- Flat dialogs: compact underline tabs, no elevation. -->
       <ControlTheme x:Key="{x:Type TabControl}" TargetType="TabControl">
@@ -70,81 +70,123 @@
       </ControlTheme>
 
       <ResourceDictionary.ThemeDictionaries>
-        <!-- Flat Light -->
+        <!-- Navicat-inspired light -->
         <ResourceDictionary x:Key="Light">
           <SolidColorBrush x:Key="AccentText">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusText">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceBackground">#EEEEF2</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusText">#5B6576</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBackground">#F1F3F7</SolidColorBrush>
           <SolidColorBrush x:Key="PanelBackground">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="SidebarBackground">#F5F5F5</SolidColorBrush>
-          <SolidColorBrush x:Key="SidebarHoverBackground">#E7E8EC</SolidColorBrush>
-          <SolidColorBrush x:Key="SidebarSelectionBackground">#DCE9F8</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBackground">#F7F8FB</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarHoverBackground">#EEF3FB</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarSelectionBackground">#E3EDFC</SolidColorBrush>
           <SolidColorBrush x:Key="SidebarSearchBackground">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="IconMutedBrush">#8B909A</SolidColorBrush>
-          <SolidColorBrush x:Key="SubtleBackground">#F5F5F5</SolidColorBrush>
-          <SolidColorBrush x:Key="ControlHoverBackground">#E6E8ED</SolidColorBrush>
-          <SolidColorBrush x:Key="PressedBackground">#D7DAE0</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceBorder">#CCCEDB</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceText">#1E1E1E</SolidColorBrush>
-          <SolidColorBrush x:Key="MutedText">#6D6D6D</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentBrush">#007ACC</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentHoverBrush">#0067AC</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentPressedBrush">#00538A</SolidColorBrush>
-          <SolidColorBrush x:Key="SelectionBackground">#C9DEF5</SolidColorBrush>
-          <SolidColorBrush x:Key="SelectionText">#1E1E1E</SolidColorBrush>
-          <SolidColorBrush x:Key="DangerBrush">#B01011</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusBackground">#007ACC</SolidColorBrush>
+          <SolidColorBrush x:Key="IconMutedBrush">#7B8596</SolidColorBrush>
+          <SolidColorBrush x:Key="SubtleBackground">#F5F7FA</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlHoverBackground">#ECF1F9</SolidColorBrush>
+          <SolidColorBrush x:Key="PressedBackground">#DCE5F3</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBorder">#DFE4EC</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceText">#1E2430</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedText">#6A7485</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentBrush">#2F6FEB</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentHoverBrush">#4A85F5</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentPressedBrush">#255FD0</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentSoftBackground">#E9F1FE</SolidColorBrush>
+          <SolidColorBrush x:Key="ChipBackground">#EFF2F7</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionBackground">#D8E6FB</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionText">#15233A</SolidColorBrush>
+          <SolidColorBrush x:Key="DangerBrush">#D94848</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBackground">#F8F9FC</SolidColorBrush>
           <SolidColorBrush x:Key="MenuFlyoutPresenterBackground">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush">#CCCEDB</SolidColorBrush>
+          <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush">#DFE4EC</SolidColorBrush>
           <Thickness x:Key="MenuFlyoutPresenterBorderThemeThickness">1</Thickness>
-          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver">#E6E8ED</SolidColorBrush>
-          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed">#D7DAE0</SolidColorBrush>
-          <SolidColorBrush x:Key="DialogFooterBackground">#F7F8FA</SolidColorBrush>
-          <SolidColorBrush x:Key="DialogDivider">#E4E6EB</SolidColorBrush>
+          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver">#ECF1F9</SolidColorBrush>
+          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed">#DCE5F3</SolidColorBrush>
+          <SolidColorBrush x:Key="DialogFooterBackground">#F8F9FC</SolidColorBrush>
+          <SolidColorBrush x:Key="DialogDivider">#EAEDF3</SolidColorBrush>
           <SolidColorBrush x:Key="ComboBoxDropDownBackground">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush">#CCCEDB</SolidColorBrush>
+          <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush">#DFE4EC</SolidColorBrush>
           <SolidColorBrush x:Key="ToolTipBackground">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="ToolTipForeground">#1E1E1E</SolidColorBrush>
-          <SolidColorBrush x:Key="ToolTipBorderBrush">#CCCEDB</SolidColorBrush>
+          <SolidColorBrush x:Key="ToolTipForeground">#1E2430</SolidColorBrush>
+          <SolidColorBrush x:Key="ToolTipBorderBrush">#DFE4EC</SolidColorBrush>
           <Thickness x:Key="ToolTipBorderThemeThickness">1</Thickness>
+
+          <LinearGradientBrush x:Key="ToolbarBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#FCFDFE"/>
+            <GradientStop Offset="1" Color="#F3F6FA"/>
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="ToolbarBorder">#E1E6EE</SolidColorBrush>
+          <SolidColorBrush x:Key="ToolbarHover">#EAF1FE</SolidColorBrush>
+          <SolidColorBrush x:Key="TabBarBackground">#F6F8FB</SolidColorBrush>
+          <SolidColorBrush x:Key="TabActiveBackground">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="TabInactiveBackground">#EFF3F8</SolidColorBrush>
+          <SolidColorBrush x:Key="TabInactiveText">#5B6678</SolidColorBrush>
+          <SolidColorBrush x:Key="GridHeaderBackground">#F4F6FA</SolidColorBrush>
+          <SolidColorBrush x:Key="GridHeaderForeground">#5F6B7D</SolidColorBrush>
+          <SolidColorBrush x:Key="GridRowHover">#F4F8FF</SolidColorBrush>
+          <SolidColorBrush x:Key="GridRowHeaderBackground">#F7F8FB</SolidColorBrush>
+          <SolidColorBrush x:Key="GridRowHeaderForeground">#8A94A5</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBorder">#E1E6EE</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusAccent">#2F6FEB</SolidColorBrush>
+          <LinearGradientBrush x:Key="StartPanelBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#FCFDFF"/>
+            <GradientStop Offset="1" Color="#F1F4F9"/>
+          </LinearGradientBrush>
         </ResourceDictionary>
-        <!-- Flat Dark -->
+        <!-- Navicat-inspired dark -->
         <ResourceDictionary x:Key="Dark">
-          <SolidColorBrush x:Key="AccentText">#282A36</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusText">#F8F8F2</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceBackground">#282A36</SolidColorBrush>
-          <SolidColorBrush x:Key="PanelBackground">#282A36</SolidColorBrush>
-          <SolidColorBrush x:Key="SidebarBackground">#21222C</SolidColorBrush>
-          <SolidColorBrush x:Key="SidebarHoverBackground">#2C2E3A</SolidColorBrush>
-          <SolidColorBrush x:Key="SidebarSelectionBackground">#3A3D4D</SolidColorBrush>
-          <SolidColorBrush x:Key="SidebarSearchBackground">#2A2C38</SolidColorBrush>
-          <SolidColorBrush x:Key="IconMutedBrush">#8C93A8</SolidColorBrush>
-          <SolidColorBrush x:Key="SubtleBackground">#343746</SolidColorBrush>
-          <SolidColorBrush x:Key="ControlHoverBackground">#44475A</SolidColorBrush>
-          <SolidColorBrush x:Key="PressedBackground">#4E5166</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceBorder">#44475A</SolidColorBrush>
-          <SolidColorBrush x:Key="WorkspaceText">#F8F8F2</SolidColorBrush>
-          <SolidColorBrush x:Key="MutedText">#A9B4D0</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentBrush">#BD93F9</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentHoverBrush">#CAA9FA</SolidColorBrush>
-          <SolidColorBrush x:Key="AccentPressedBrush">#A87FE8</SolidColorBrush>
-          <SolidColorBrush x:Key="SelectionBackground">#44475A</SolidColorBrush>
-          <SolidColorBrush x:Key="SelectionText">#F8F8F2</SolidColorBrush>
-          <SolidColorBrush x:Key="DangerBrush">#FF5555</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusBackground">#21222C</SolidColorBrush>
-          <SolidColorBrush x:Key="MenuFlyoutPresenterBackground">#282A36</SolidColorBrush>
-          <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush">#44475A</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentText">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusText">#AEB7C4</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBackground">#1E2125</SolidColorBrush>
+          <SolidColorBrush x:Key="PanelBackground">#25282D</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBackground">#1C1F23</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarHoverBackground">#2B3037</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarSelectionBackground">#2E3B52</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarSearchBackground">#24272C</SolidColorBrush>
+          <SolidColorBrush x:Key="IconMutedBrush">#98A2B1</SolidColorBrush>
+          <SolidColorBrush x:Key="SubtleBackground">#2B2F35</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlHoverBackground">#323840</SolidColorBrush>
+          <SolidColorBrush x:Key="PressedBackground">#3A424D</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceBorder">#363B43</SolidColorBrush>
+          <SolidColorBrush x:Key="WorkspaceText">#E6EAF0</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedText">#9AA4B2</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentBrush">#5B9BFF</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentHoverBrush">#79AEFF</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentPressedBrush">#3D7FE0</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentSoftBackground">#273449</SolidColorBrush>
+          <SolidColorBrush x:Key="ChipBackground">#2B3037</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionBackground">#2E3B52</SolidColorBrush>
+          <SolidColorBrush x:Key="SelectionText">#F2F6FC</SolidColorBrush>
+          <SolidColorBrush x:Key="DangerBrush">#FF6B6B</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBackground">#1C1F23</SolidColorBrush>
+          <SolidColorBrush x:Key="MenuFlyoutPresenterBackground">#25282D</SolidColorBrush>
+          <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush">#363B43</SolidColorBrush>
           <Thickness x:Key="MenuFlyoutPresenterBorderThemeThickness">1</Thickness>
-          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver">#44475A</SolidColorBrush>
-          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed">#4E5166</SolidColorBrush>
-          <SolidColorBrush x:Key="DialogFooterBackground">#21222C</SolidColorBrush>
-          <SolidColorBrush x:Key="DialogDivider">#3A3D4D</SolidColorBrush>
-          <SolidColorBrush x:Key="ComboBoxDropDownBackground">#282A36</SolidColorBrush>
-          <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush">#44475A</SolidColorBrush>
-          <SolidColorBrush x:Key="ToolTipBackground">#282A36</SolidColorBrush>
-          <SolidColorBrush x:Key="ToolTipForeground">#F8F8F2</SolidColorBrush>
-          <SolidColorBrush x:Key="ToolTipBorderBrush">#44475A</SolidColorBrush>
+          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver">#323840</SolidColorBrush>
+          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed">#3A424D</SolidColorBrush>
+          <SolidColorBrush x:Key="DialogFooterBackground">#1C1F23</SolidColorBrush>
+          <SolidColorBrush x:Key="DialogDivider">#333840</SolidColorBrush>
+          <SolidColorBrush x:Key="ComboBoxDropDownBackground">#25282D</SolidColorBrush>
+          <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush">#363B43</SolidColorBrush>
+          <SolidColorBrush x:Key="ToolTipBackground">#25282D</SolidColorBrush>
+          <SolidColorBrush x:Key="ToolTipForeground">#E6EAF0</SolidColorBrush>
+          <SolidColorBrush x:Key="ToolTipBorderBrush">#363B43</SolidColorBrush>
           <Thickness x:Key="ToolTipBorderThemeThickness">1</Thickness>
+
+          <SolidColorBrush x:Key="ToolbarBackground">#22262B</SolidColorBrush>
+          <SolidColorBrush x:Key="ToolbarBorder">#363B43</SolidColorBrush>
+          <SolidColorBrush x:Key="ToolbarHover">#2E3948</SolidColorBrush>
+          <SolidColorBrush x:Key="TabBarBackground">#22262B</SolidColorBrush>
+          <SolidColorBrush x:Key="TabActiveBackground">#25282D</SolidColorBrush>
+          <SolidColorBrush x:Key="TabInactiveBackground">#1E2125</SolidColorBrush>
+          <SolidColorBrush x:Key="TabInactiveText">#9AA4B2</SolidColorBrush>
+          <SolidColorBrush x:Key="GridHeaderBackground">#2B2F35</SolidColorBrush>
+          <SolidColorBrush x:Key="GridHeaderForeground">#9AA4B2</SolidColorBrush>
+          <SolidColorBrush x:Key="GridRowHover">#2E3948</SolidColorBrush>
+          <SolidColorBrush x:Key="GridRowHeaderBackground">#22262B</SolidColorBrush>
+          <SolidColorBrush x:Key="GridRowHeaderForeground">#7C8797</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBorder">#363B43</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusAccent">#5B9BFF</SolidColorBrush>
+          <SolidColorBrush x:Key="StartPanelBackground">#1E2125</SolidColorBrush>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
@@ -152,8 +194,8 @@
   <Application.Styles>
     <FluentTheme>
       <FluentTheme.Palettes>
-        <ColorPaletteResources x:Key="Light" Accent="#007ACC" />
-        <ColorPaletteResources x:Key="Dark" Accent="#BD93F9" />
+        <ColorPaletteResources x:Key="Light" Accent="#2F6FEB" />
+        <ColorPaletteResources x:Key="Dark" Accent="#5B9BFF" />
       </FluentTheme.Palettes>
     </FluentTheme>
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
@@ -177,7 +219,7 @@
     <Style Selector="Border.flatPanel"><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="12"/></Style>
     <Style Selector="Border.scrollFade"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="IsHitTestVisible" Value="False"/><Setter Property="Height" Value="28"/><Setter Property="VerticalAlignment" Value="Bottom"/><Setter Property="OpacityMask"><LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%"><GradientStop Offset="0" Color="Transparent"/><GradientStop Offset="1" Color="Black"/></LinearGradientBrush></Setter></Style>
 
-    <Style Selector="Button"><Setter Property="CornerRadius" Value="6"/><Setter Property="Padding" Value="12,6"/><Setter Property="MinHeight" Value="28"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
+    <Style Selector="Button"><Setter Property="CornerRadius" Value="5"/><Setter Property="Padding" Value="13,6"/><Setter Property="MinHeight" Value="28"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
     <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/></Style>
     <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource PressedBackground}"/></Style>
     <Style Selector="Button.primary"><Setter Property="Background" Value="{DynamicResource AccentBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="{DynamicResource AccentText}"/></Style>
@@ -186,28 +228,36 @@
     <Style Selector="Button.danger"><Setter Property="Background" Value="{DynamicResource DangerBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/><Setter Property="Foreground" Value="#FFFFFF"/></Style>
     <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource DangerBrush}"/><Setter Property="Opacity" Value="0.88"/><Setter Property="TextElement.Foreground" Value="#FFFFFF"/></Style>
     <Style Selector="Button.danger:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource DangerBrush}"/><Setter Property="Opacity" Value="0.78"/><Setter Property="TextElement.Foreground" Value="#FFFFFF"/></Style>
-    <Style Selector="ToggleButton"><Setter Property="CornerRadius" Value="6"/></Style>
+    <Style Selector="Button.toolbar"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="4"/><Setter Property="Padding" Value="10,4"/><Setter Property="MinHeight" Value="30"/></Style>
+    <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ToolbarHover}"/></Style>
+    <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource PressedBackground}"/></Style>
+    <Style Selector="Button.toolbar:disabled /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/></Style>
+    <Style Selector="Button.icon"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="CornerRadius" Value="4"/><Setter Property="Padding" Value="6"/><Setter Property="MinHeight" Value="26"/><Setter Property="MinWidth" Value="26"/></Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/></Style>
+    <Style Selector="ToggleButton"><Setter Property="CornerRadius" Value="4"/></Style>
 
-    <Style Selector="TextBox"><Setter Property="CornerRadius" Value="0"/><Setter Property="MinHeight" Value="30"/><Setter Property="Padding" Value="8,4"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
+    <Style Selector="TextBox"><Setter Property="CornerRadius" Value="5"/><Setter Property="MinHeight" Value="30"/><Setter Property="Padding" Value="8,4"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
+    <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement"><Setter Property="BorderBrush" Value="{DynamicResource MutedText}"/></Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Style>
     <Style Selector="TextBox[AcceptsReturn=True]"><Setter Property="VerticalContentAlignment" Value="Top"/></Style>
-    <Style Selector="ComboBox"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="0"/><Setter Property="MinHeight" Value="30"/><Setter Property="Padding" Value="8,3"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+    <Style Selector="ComboBox"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="5"/><Setter Property="MinHeight" Value="30"/><Setter Property="Padding" Value="8,3"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
     <Style Selector="ComboBox:pointerover /template/ Border#Background"><Setter Property="BorderBrush" Value="{DynamicResource MutedText}"/></Style>
     <Style Selector="ComboBox:focus /template/ Border#Background"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Style>
-    <Style Selector="ComboBoxItem"><Setter Property="CornerRadius" Value="0"/><Setter Property="Padding" Value="8,5"/></Style>
-    <Style Selector="CheckBox"><Setter Property="CornerRadius" Value="0"/><Setter Property="MinHeight" Value="28"/><Setter Property="FontSize" Value="12.5"/></Style>
-    <Style Selector="CheckBox /template/ Border#NormalRectangle"><Setter Property="CornerRadius" Value="0"/><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
+    <Style Selector="ComboBoxItem"><Setter Property="CornerRadius" Value="2"/><Setter Property="Padding" Value="8,5"/></Style>
+    <Style Selector="CheckBox"><Setter Property="CornerRadius" Value="2"/><Setter Property="MinHeight" Value="28"/><Setter Property="FontSize" Value="12.5"/></Style>
+    <Style Selector="CheckBox /template/ Border#NormalRectangle"><Setter Property="CornerRadius" Value="3"/><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
     <Style Selector="CheckBox:pointerover /template/ Border#NormalRectangle"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Style>
     <Style Selector="CheckBox:checked /template/ Border#NormalRectangle"><Setter Property="Background" Value="{DynamicResource AccentBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Style>
     <Style Selector="CheckBox:checked:pointerover /template/ Border#NormalRectangle"><Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/></Style>
     <Style Selector="CheckBox:checked:pressed /template/ Border#NormalRectangle"><Setter Property="Background" Value="{DynamicResource AccentPressedBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentPressedBrush}"/></Style>
     <Style Selector="CheckBox /template/ Path#CheckGlyph"><Setter Property="Fill" Value="{DynamicResource AccentText}"/></Style>
     <Style Selector="RadioButton"><Setter Property="MinHeight" Value="26"/></Style>
-    <Style Selector="ListBoxItem"><Setter Property="CornerRadius" Value="0"/><Setter Property="Padding" Value="8,5"/><Setter Property="Margin" Value="0"/></Style>
+    <Style Selector="ListBoxItem"><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,5"/><Setter Property="Margin" Value="0"/></Style>
     <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/></Style>
     <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SelectionBackground}"/><Setter Property="TextElement.Foreground" Value="{DynamicResource SelectionText}"/></Style>
     <Style Selector="ListBox.flat"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="0"/></Style>
     <Style Selector="TabStripItem"><Setter Property="CornerRadius" Value="0"/></Style>
-    <Style Selector="TreeViewItem"><Setter Property="CornerRadius" Value="0"/></Style>
+    <Style Selector="TreeViewItem"><Setter Property="CornerRadius" Value="3"/><Setter Property="MinHeight" Value="26"/><Setter Property="Padding" Value="2,2"/></Style>
 
     <!-- Icon navigation used by settings: centered icon over label, soft selected tile. -->
     <Style Selector="TabControl.nav /template/ Border#PART_TabStrip"><Setter Property="Background" Value="{DynamicResource SidebarBackground}"/><Setter Property="Padding" Value="4"/><Setter Property="Margin" Value="20,12"/><Setter Property="HorizontalAlignment" Value="Left"/><Setter Property="CornerRadius" Value="10"/><Setter Property="BorderThickness" Value="0"/></Style>
@@ -224,19 +274,27 @@
     <Style Selector="TabItem.nav:selected TextBlock.navLabel"><Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
 
     <Style Selector="DataGrid"><Setter Property="FontSize" Value="12"/><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="VerticalGridLinesBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
-    <Style Selector="DataGridCell"><Setter Property="FontSize" Value="11"/><Setter Property="MinHeight" Value="24"/></Style>
-    <Style Selector="DataGridColumnHeader"><Setter Property="CornerRadius" Value="0"/><Setter Property="Background" Value="{DynamicResource SubtleBackground}"/><Setter Property="Foreground" Value="{DynamicResource MutedText}"/><Setter Property="FontSize" Value="11"/><Setter Property="FontWeight" Value="Medium"/><Setter Property="Padding" Value="10,0"/><Setter Property="MinHeight" Value="28"/></Style>
+    <Style Selector="DataGridCell"><Setter Property="FontSize" Value="11.5"/><Setter Property="MinHeight" Value="25"/><Setter Property="Padding" Value="7,0"/></Style>
+    <Style Selector="DataGridColumnHeader"><Setter Property="CornerRadius" Value="0"/><Setter Property="Background" Value="{DynamicResource GridHeaderBackground}"/><Setter Property="Foreground" Value="{DynamicResource GridHeaderForeground}"/><Setter Property="FontSize" Value="11.5"/><Setter Property="FontWeight" Value="Medium"/><Setter Property="Padding" Value="10,0"/><Setter Property="MinHeight" Value="30"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="0,0,1,1"/></Style>
+    <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource GridRowHover}"/><Setter Property="Opacity" Value="1"/></Style>
     <Style Selector="DataGridRow:selected"><Setter Property="Background" Value="{DynamicResource SelectionBackground}"/><Setter Property="Foreground" Value="{DynamicResource SelectionText}"/></Style>
     <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource SelectionBackground}"/><Setter Property="Opacity" Value="1"/></Style>
     <Style Selector="DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource SelectionBackground}"/><Setter Property="Opacity" Value="1"/></Style>
+    <Style Selector="DataGridRowHeader"><Setter Property="Background" Value="{DynamicResource GridRowHeaderBackground}"/><Setter Property="Foreground" Value="{DynamicResource GridRowHeaderForeground}"/><Setter Property="FontSize" Value="11"/><Setter Property="MinWidth" Value="44"/><Setter Property="Padding" Value="6,0"/><Setter Property="HorizontalContentAlignment" Value="Right"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="0,0,1,1"/></Style>
+    <Style Selector="DataGridRow:selected DataGridRowHeader"><Setter Property="Background" Value="{DynamicResource SelectionBackground}"/><Setter Property="Foreground" Value="{DynamicResource SelectionText}"/></Style>
 
-    <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource SidebarSelectionBackground}"/></Style>
+    <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource SidebarSelectionBackground}"/><Setter Property="CornerRadius" Value="3"/></Style>
     <Style Selector="TreeViewItem:selected"><Setter Property="Foreground" Value="{DynamicResource SelectionText}"/></Style>
+    <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource SidebarHoverBackground}"/><Setter Property="CornerRadius" Value="3"/></Style>
 
-    <Style Selector="MenuItem"><Setter Property="CornerRadius" Value="0"/></Style>
+    <Style Selector="MenuItem"><Setter Property="CornerRadius" Value="4"/><Setter Property="Padding" Value="10,6"/><Setter Property="MinHeight" Value="26"/></Style>
+    <Style Selector="Menu > MenuItem"><Setter Property="Padding" Value="10,4"/><Setter Property="MinHeight" Value="26"/><Setter Property="FontSize" Value="12.5"/></Style>
+    <Style Selector="Menu > MenuItem:pointerover /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource AccentSoftBackground}"/></Style>
     <Style Selector="MenuItem:pointerover /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/></Style>
     <Style Selector="MenuItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource ControlHoverBackground}"/></Style>
-    <Style Selector="ContextMenu"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="WindowManagerAddShadowHint" Value="False"/></Style>
+    <Style Selector="MenuItem:disabled"><Setter Property="Opacity" Value="0.45"/></Style>
+    <Style Selector="Separator"><Setter Property="Margin" Value="8,4"/></Style>
+    <Style Selector="ContextMenu"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="4"/><Setter Property="WindowManagerAddShadowHint" Value="False"/></Style>
     <Style Selector="MenuFlyoutPresenter"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
     <Style Selector="ToolTip"><Setter Property="Background" Value="{DynamicResource PanelBackground}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceText}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="7,4"/></Style>
     <Style Selector="MenuItem.danger"><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></Style>

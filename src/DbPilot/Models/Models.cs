@@ -32,6 +32,8 @@ public sealed class ConnectionProfile
     public int MinimumPoolSize { get; set; }
     public int MaximumPoolSize { get; set; } = 100;
     public bool UsePooling { get; set; } = true;
+    public bool Favorite { get; set; }
+    public string Color { get; set; } = "";
     public override string ToString() => $"{Name} · {Kind}";
 }
 public sealed record DbObject(string Database, string Schema, string Name, string Kind,string Signature="",string Parent="")
@@ -59,7 +61,10 @@ public sealed class QueryTab : Observable
     private ConnectionProfile? _connection;
     public ConnectionProfile? Connection { get=>_connection; set{if(Set(ref _connection,value))Changed(nameof(ContextLabel));} }
     public string ContextLabel=>Connection is null?"尚未选择连接":$"{Connection.Name} / {(string.IsNullOrWhiteSpace(Connection.Database)?"未选择数据库":Connection.Database)}";
-    public DbObject? Table { get; set; }
+    private DbObject? _table;
+    public DbObject? Table { get=>_table; set{if(Set(ref _table,value)){Changed(nameof(IsTableTab));Changed(nameof(IsQueryTab));}} }
+    public bool IsTableTab => Table is not null;
+    public bool IsQueryTab => Table is null;
     public IReadOnlyList<ColumnInfo>? TableColumns { get; set; }
     public IReadOnlyList<int>? PreviewColumns { get; set; }
     public int Page { get; set; }

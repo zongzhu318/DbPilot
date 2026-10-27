@@ -36,12 +36,18 @@ internal static class TDengineLiveChecks
                 async IAsyncEnumerable<object?[]> Rows(){yield return [new DateTime(2026,10,18,10,0,0),4.5,true,"child"];await Task.CompletedTask;}
                 Check(await db.InsertRowsAsync(child,["ts","reading","flag","note"],Rows(),null,ct)==1,"child insert");Check((await db.QueryAsync($"SELECT * FROM {Q(stable)}",10,ct)).Rows.Count==1,"stable read");
             });
+            await Test("Numeric, boolean and timestamp columns keep CLR types",async()=>{
+                var r=await db.QueryAsync($"SELECT ts,reading,flag,note FROM {Q(normal)} ORDER BY ts",10,ct);
+                Check(r.Rows[0][0] is DateTime,"timestamp type");Check(r.Rows[0][1] is double reading&&Math.Abs(reading-12.375)<1e-9,"double type");Check(r.Rows[0][2] is bool flag&&flag,"bool type");Check(r.Rows[0][3] is string,"string type");
+                var table=ResultTable.Create(r);
+                Check(table.Columns[0].DataType==typeof(DateTime)&&table.Columns[1].DataType==typeof(double)&&table.Columns[2].DataType==typeof(bool),"result grid keeps numeric/boolean/time column types");
+            });
             await Test("Multi-batch 1200-row import, page boundaries and all exports",async()=>{
                 var bulk=normal with{Name="bulk_data"};await db.QueryAsync($"CREATE TABLE {Q(bulk)} (ts TIMESTAMP,reading DOUBLE,flag BOOL,note NCHAR(100))",1,ct);
                 async IAsyncEnumerable<object?[]> Rows(){for(int i=0;i<1200;i++){yield return [new DateTime(2026,10,18,11,0,0).AddMilliseconds(i),i*0.5,i%2==0,"批量 "+i];if(i%200==0)await Task.Yield();}}
                 Check(await db.InsertRowsAsync(bulk,["ts","reading","flag","note"],Rows(),null,ct)==1200,"bulk count");Check(Convert.ToInt32((await db.QueryAsync($"SELECT COUNT(*) FROM {Q(bulk)}",1,ct)).Rows[0][0])==1200,"server count");
                 Check((await db.QueryAsync(db.PageSql(bulk,"reading >= 0",2,500),500,ct)).Rows.Count==200,"last page");
-                foreach(var format in new[]{"csv","json","sql"}){await using var output=new MemoryStream();Check(await DataTransfer.ExportAsync(db,testProfile,bulk,output,format,null,ct)==1200&&output.Length>0,"export "+format);}
+                foreach(var format in new[]{"csv","json","sql","xlsx"}){await using var output=new MemoryStream();Check(await DataTransfer.ExportAsync(db,testProfile,bulk,output,format,null,ct)==1200&&output.Length>0,"export "+format);}
             });
             await Test("Tag alteration, column DDL and time-window aggregation",async()=>{
                 await db.QueryAsync($"ALTER TABLE {Q(child)} SET TAG location='新位置'",1,ct);Check((await db.QueryAsync($"SELECT location FROM {Q(child)}",1,ct)).Rows[0][0]?.ToString()=="新位置","tag update");

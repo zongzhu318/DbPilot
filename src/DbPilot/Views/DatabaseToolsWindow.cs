@@ -20,7 +20,7 @@ public sealed class DatabaseToolsWindow : Window
     private readonly Action<string,ConnectionProfile> _openSql;
     private CancellationTokenSource? _operation;
     private bool _closing;
-    public DatabaseToolsWindow(IEnumerable<ConnectionProfile> profiles,ConnectionProfile? selected,Action<string,ConnectionProfile> openSql)
+    public DatabaseToolsWindow(IEnumerable<ConnectionProfile> profiles,ConnectionProfile? selected,Action<string,ConnectionProfile> openSql,int initialTab=0)
     {
         Title="数据库工具 · DbPilot";Width=1180;Height=790;MinWidth=940;MinHeight=640;WindowStartupLocation=WindowStartupLocation.CenterOwner;
         Classes.Add("dialog");
@@ -44,14 +44,15 @@ public sealed class DatabaseToolsWindow : Window
             Tab("查询构建",Row(Button("选择字段、条件和排序",BuildQuery),Hint("按字段、条件与排序生成 SELECT 语句。"))),
             Tab("ER 图",Row(Button("读取当前数据库关系图",ErDiagram),Hint("最多展示 100 张表；表较多时请按数据库拆分查看。"))),
             Tab("TDengine",Row(Button("检测版本与流 / 订阅元数据",TdMetadata),Hint("检测服务器版本与流、主题、订阅元数据。"))),
-            Tab("整表导出",Row(Button("CSV",()=>Export("csv")),Button("JSON",()=>Export("json")),Hint("导出所有行；取消时保留已有文件。"))),
-            Tab("CSV 导入",Row(Button("选择 CSV 并映射字段",Import),Hint("首行为字段名，\\N 表示 NULL；关系数据库整批事务提交。"))),
+            Tab("整表导出",Row(Button("CSV",()=>Export("csv")),Button("JSON",()=>Export("json")),Button("Excel",()=>Export("xlsx")),Hint("导出所有行；取消时保留已有文件。"))),
+            Tab("表格导入",Row(Button("选择 CSV / Excel 并映射字段",Import),Hint("CSV 首行为字段名，\\N 表示 NULL；Excel 读取首个工作表。关系数据库整批事务提交。"))),
             Tab("结构比较",Row(Button("比较源表 → 目标表",Compare),Hint("生成字段差异 SQL；请在编辑器中审阅后执行。"))),
             Tab("数据迁移",Row(Button("迁移到已有目标表",Migrate),Hint("按同名可写字段追加；不清空目标表。"))),
             Tab("逻辑备份",Row(Button("备份当前数据库的基础表结构与数据",Backup),Hint("包含字段、主键、外键与表数据，不含视图、索引、触发器与权限。"))),
             Tab("脚本恢复",Row(Button("执行 SQL 文件",Restore),Hint("按批次执行，遇错停止；已完成批次不会自动回滚。")))
         }};
         tabs.Margin=new Thickness(0,12,0,0);
+        tabs.SelectedIndex=Math.Clamp(initialTab,0,Math.Max(0,tabs.ItemCount-1));
         _preview.Margin=new Thickness(0,12,0,0);
 
         var body=new Grid{RowDefinitions=new("Auto,Auto,*"),Margin=new Thickness(24,16,24,16)};
@@ -104,24 +105,44 @@ public sealed class DatabaseToolsWindow : Window
     private async Task Import()
     {
         if(_operation is not null)return;var profile=Profile(false);var table=Table(false);
-        var files=await StorageProvider.OpenFilePickerAsync(new(){Title="导入 CSV",AllowMultiple=false,FileTypeFilter=[new("CSV"){Patterns=["*.csv"]}]});if(files.Count==0)return;
+        var files=await StorageProvider.OpenFilePickerAsync(new(){Title="导入表格",AllowMultiple=false,FileTypeFilter=[new("CSV / Excel"){Patterns=["*.csv","*.xlsx"]}]});if(files.Count==0)return;
+        var excel=IsExcel(files[0].Name);
         await Run(async ct=>{
             await using var provider=DbProviderFactory.Create(profile);var columns=(await provider.ColumnsAsync(table,ct)).Where(c=>!c.IsGenerated&&!c.IsTag).ToArray();
-            await using var sample=await files[0].OpenReadAsync();using var sampleReader=new StreamReader(sample);
-            await using var enumerator=CsvData.ReadAsync(sampleReader,ct).GetAsyncEnumerator(ct);if(!await enumerator.MoveNextAsync())throw new FormatException("CSV 文件为空。");
-            var header=enumerator.Current;
-            var mapping=await MapColumns(header,columns);ct.ThrowIfCancellationRequested();if(mapping is null){_status.Text="已取消导入。";return;}
-            var selected=mapping.Select(m=>columns[m.Target]).ToArray();
-            if(!await Confirm($"向 {profile.Name} / {table} 追加 CSV 数据？\n映射 {mapping.Length} 个字段。"))return;
-            await using var input=await files[0].OpenReadAsync();using var reader=new StreamReader(input);
-            var rows=CsvData.MapAsync(reader,true,mapping.Select(m=>m.Source).ToArray(),selected,profile.Kind,ct);
-            var count=await provider.InsertRowsAsync(table,selected.Select(c=>c.Name).ToArray(),rows,new UiProgress<TransferProgress>(p=>_status.Text=$"{p.Stage} · {p.Rows} 行"),ct);
+            string[] header;
+            await using(var headerRows=ReadImportRowsAsync(files[0],ct).GetAsyncEnumerator(ct)){
+                if(!await headerRows.MoveNextAsync())throw new FormatException(excel?"Excel 文件没有数据。":"CSV 文件为空。");
+                header=headerRows.Current;
+            }
+            if(header.Length==0||header.All(string.IsNullOrWhiteSpace))throw new FormatException("首行没有可用的字段名。");
+            var mapping=await MapColumns(header,columns,excel?"Excel 字段映射 · 首个工作表":"CSV 字段映射 · 首行为标题");ct.ThrowIfCancellationRequested();if(mapping is null){_status.Text="已取消导入。";return;}
+            var selected=mapping.Select(m=>columns[m.Target]).ToArray();var targets=selected.Select(c=>c.Name).ToArray();var sources=mapping.Select(m=>m.Source).ToArray();
+            if(!await Confirm($"向 {profile.Name} / {table} 追加{(excel?" Excel":" CSV")}数据？\n映射 {mapping.Length} 个字段。"))return;
+            var progress=new UiProgress<TransferProgress>(p=>_status.Text=$"{p.Stage} · {p.Rows} 行");
+            long count;
+            if(excel)count=await provider.InsertRowsAsync(table,targets,CsvData.MapAsync(ReadImportRowsAsync(files[0],ct),true,sources,selected,profile.Kind,true,ct),progress,ct);
+            else{
+                await using var input=await files[0].OpenReadAsync();using var reader=new StreamReader(input);
+                count=await provider.InsertRowsAsync(table,targets,CsvData.MapAsync(reader,true,sources,selected,profile.Kind,ct),progress,ct);
+            }
             _status.Text=$"已提交 {count} 行。";
         });
     }
-    private async Task<(int Source,int Target)[]?> MapColumns(string[] header,ColumnInfo[] columns)
+    private static bool IsExcel(string name)=>Path.GetExtension(name).Equals(".xlsx",StringComparison.OrdinalIgnoreCase);
+    private static async IAsyncEnumerable<string[]> ReadImportRowsAsync(Avalonia.Platform.Storage.IStorageFile file,[System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        var dialog=DialogUi.Dialog("CSV 字段映射 · 首行为标题",700,600);
+        if(IsExcel(file.Name)){
+            await using var stream=await file.OpenReadAsync();
+            await foreach(var row in XlsxWorkbook.ReadAsync(stream,ct))yield return row;
+        }else{
+            await using var stream=await file.OpenReadAsync();
+            using var reader=new StreamReader(stream);
+            await foreach(var row in CsvData.ReadAsync(reader,ct))yield return row;
+        }
+    }
+    private async Task<(int Source,int Target)[]?> MapColumns(string[] header,ColumnInfo[] columns,string title="CSV 字段映射 · 首行为标题")
+    {
+        var dialog=DialogUi.Dialog(title,700,600);
         var rows=new StackPanel{Spacing=10};var pickers=new List<ComboBox>();
         foreach(var name in header){var picker=new ComboBox{ItemsSource=new[]{"（跳过）"}.Concat(columns.Select(c=>c.Name)).ToArray(),SelectedIndex=Array.FindIndex(columns,c=>c.Name==name)+1,Width=270};pickers.Add(picker);rows.Children.Add(Row(new TextBlock{Text=name,Width=240,TextWrapping=Avalonia.Media.TextWrapping.Wrap,Classes={"fieldLabel"}},picker));}
         rows.Margin=new Thickness(24,16,24,16);
@@ -133,7 +154,7 @@ public sealed class DatabaseToolsWindow : Window
             dialog.Close(mapping);
         });
         var cancel=DialogUi.Secondary("取消",()=>dialog.Close(null));
-        dialog.Content=DialogUi.Shell("CSV 字段映射","首行为标题；为每个源字段选择映射的目标字段。",body,DialogUi.Footer(error,cancel,okay));
+        dialog.Content=DialogUi.Shell("字段映射","首行为标题；为每个源字段选择映射的目标字段。",body,DialogUi.Footer(error,cancel,okay));
         return await dialog.ShowDialog<(int Source,int Target)[]?>(this);
     }
     private Task Compare()=>Run(async ct=>{

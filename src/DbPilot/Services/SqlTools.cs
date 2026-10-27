@@ -317,5 +317,57 @@ public static partial class SqlTools
             (tags.Length == 0 ? "" : $" TAGS ({string.Join(", ",tags.Select(c=>$"{provider.Quote(c.Name)} {c.Type}"))})") + ";";
     }
     public static string Display(object? value) => value switch { null or DBNull => "NULL", byte[] b => "0x" + Convert.ToHexString(b.AsSpan(0,Math.Min(64,b.Length))) + (b.Length>64 ? "…" : ""), DateTime d => d.ToString("yyyy-MM-dd HH:mm:ss.fff"), _ => Convert.ToString(value,System.Globalization.CultureInfo.InvariantCulture) ?? "" };
+    // Returns the statement under the caret; useful for running one statement without selecting it.
+    public static string? StatementAt(string sql,int caret,DatabaseKind kind,out int start,out int length)
+    {
+        start=0;length=0;
+        if(string.IsNullOrWhiteSpace(sql))return null;
+        caret=Math.Clamp(caret,0,sql.Length);
+        var ranges=new List<(int Start,int End)>();
+        int statementStart=0;
+        char quote='\0';bool lineComment=false;int blockDepth=0;string? dollar=null;
+        for(int i=0;i<sql.Length;i++)
+        {
+            char c=sql[i],next=i+1<sql.Length?sql[i+1]:'\0';
+            if(lineComment){if(c=='\n')lineComment=false;continue;}
+            if(blockDepth>0){if(c=='/'&&next=='*'){blockDepth++;i++;}else if(c=='*'&&next=='/'){blockDepth--;i++;}continue;}
+            if(dollar is not null){if(i+dollar.Length<=sql.Length&&string.CompareOrdinal(sql,i,dollar,0,dollar.Length)==0){i+=dollar.Length-1;dollar=null;}continue;}
+            if(quote!='\0'){if(c==quote){if(next==quote)i++;else quote='\0';}continue;}
+            if(c=='-'&&next=='-'&&(kind!=DatabaseKind.MySQL||i+2>=sql.Length||char.IsWhiteSpace(sql[i+2]))){lineComment=true;i++;continue;}
+            if(c=='#'&&kind==DatabaseKind.MySQL){lineComment=true;continue;}
+            if(c=='/'&&next=='*'){blockDepth=1;i++;continue;}
+            if(c is '\'' or '"' or '`' || c=='['&&kind==DatabaseKind.SqlServer){quote=c=='['?']':c;continue;}
+            if(c=='$'&&kind==DatabaseKind.PostgreSQL)
+            {
+                int j=i+1;while(j<sql.Length&&(char.IsLetterOrDigit(sql[j])||sql[j]=='_'))j++;
+                if(j<sql.Length&&sql[j]=='$'){dollar=sql[i..(j+1)];i=j;continue;}
+            }
+            if(c==';'){ranges.Add((statementStart,i+1));statementStart=i+1;}
+        }
+        if(statementStart<sql.Length)ranges.Add((statementStart,sql.Length));
+        if(ranges.Count==0)return null;
+        static (int Start,int End,bool Empty) Trim(string text,int from,int to)
+        {
+            while(from<to&&char.IsWhiteSpace(text[from]))from++;
+            while(to>from&&char.IsWhiteSpace(text[to-1]))to--;
+            return (from,to,from>=to);
+        }
+        var chosen=ranges.FirstOrDefault(r=>caret>=r.Start&&caret<=r.End);
+        var trimmed=Trim(sql,chosen.Start,chosen.End);
+        if(trimmed.Empty)
+        {
+            var before=ranges.Where(r=>r.End<=caret).Select(r=>Trim(sql,r.Start,r.End)).LastOrDefault(r=>!r.Empty);
+            if(before.End>before.Start)trimmed=before;
+            else
+            {
+                var after=ranges.Select(r=>Trim(sql,r.Start,r.End)).FirstOrDefault(r=>!r.Empty&&r.Start>=caret);
+                if(after.End<=after.Start)return null;
+                trimmed=after;
+            }
+        }
+        start=trimmed.Start;length=trimmed.End-trimmed.Start;
+        return length==0?null:sql.Substring(start,length);
+    }
+
     public static string CsvCell(object? value) { var text = value is null ? "" : Display(value); return "\"" + text.Replace("\"","\"\"") + "\""; }
 }

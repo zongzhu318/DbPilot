@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using DbPilot.Models;
 using DbPilot.Providers;
+using DbPilot.Services;
 
 namespace DbPilot.Views;
 public sealed partial class MainWindow
@@ -45,15 +46,41 @@ public sealed partial class MainWindow
         TableCatalogGrid.SelectedItem=table;
         var profile=_catalogProfile;
         bool available=!_vm.Busy&&!_vm.IsClosed(profile);
-        var open=new MenuItem{Header="打开数据",IsEnabled=available};
-        open.Click+=async(_,_)=>{if(_vm.Busy||_vm.IsClosed(profile))return;CloseCatalog();await _vm.OpenTableAsync(new ObjectNode{Profile=profile,Database=table.Database,Object=table,Label=table.Name},Size);};
+        bool isTable=IsTableObject(table);bool truncatable=available&&profile.Kind!=DatabaseKind.TDengine&&isTable;
+        var node=new ObjectNode{Profile=profile,Database=table.Database,Object=table,Label=table.Name,Loaded=true,Kind=table.Kind=="视图"?ObjectNodeKind.View:ObjectNodeKind.Table};
+        var open=new MenuItem{Header=isTable?"打开表":"打开视图",IsEnabled=available};
+        open.Click+=async(_,_)=>{if(_vm.Busy||_vm.IsClosed(profile))return;CloseCatalog();await _vm.OpenTableAsync(node,Size);};
         var properties=new MenuItem{Header="属性 · 表结构与建表语句",IsEnabled=available};
         properties.Click+=async(_,_)=>await ShowTableStructure(profile,table);
-        var rename=new MenuItem{Header="重命名",IsEnabled=available&&profile.Kind!=DatabaseKind.TDengine&&table.Kind!="视图"};
+        var design=new MenuItem{Header="设计表",IsEnabled=available&&isTable};
+        design.Click+=async(_,_)=>{await OpenDesigner(profile,table);};
+        var newTable=new MenuItem{Header="新建表",IsEnabled=available};
+        newTable.Click+=async(_,_)=>await CreateTableForContextAsync(node);
+        var rename=new MenuItem{Header="重命名",IsEnabled=available&&profile.Kind!=DatabaseKind.TDengine&&isTable};
         rename.Click+=async(_,_)=>await RenameTableAsync(profile,table);
+        var delete=new MenuItem{Header="删除表",IsEnabled=available&&isTable};
+        delete.Click+=async(_,_)=>await DropTableAsync(profile,table);
+        var clear=new MenuItem{Header="清空表",IsEnabled=truncatable};
+        clear.Click+=async(_,_)=>await ClearTableAsync(node,false);
+        var truncate=new MenuItem{Header="截断表",IsEnabled=truncatable};
+        truncate.Click+=async(_,_)=>await ClearTableAsync(node,true);
+        var copyTable=BuildCopyTableMenu(node,truncatable);
+        var permissions=new MenuItem{Header="设置权限",IsEnabled=truncatable};
+        permissions.Click+=async(_,_)=>await SetPermissionsAsync(node);
+        var import=new MenuItem{Header="导入向导…",IsEnabled=available&&isTable};
+        import.Click+=async(_,_)=>await OpenDatabaseToolsTab(6,node);
+        var export=new MenuItem{Header="导出向导…",IsEnabled=available};
+        export.Click+=async(_,_)=>await OpenDatabaseToolsTab(5,node);
+        var dump=BuildDumpMenu(node,available&&isTable&&profile.Kind!=DatabaseKind.TDengine);
+        var maintenance=BuildMaintenanceMenu(node,table,available&&isTable);
         var copy=new MenuItem{Header="复制表名"};copy.Click+=async(_,_)=>{if(Clipboard is not null)await Clipboard.SetTextAsync(table.ToString());};
+        var refresh=new MenuItem{Header="刷新",IsEnabled=available};
+        refresh.Click+=async(_,_)=>await ShowTableCatalog();
         var menu=TableCatalogGrid.ContextMenu!;
-        menu.ItemsSource=new Control[]{open,properties,rename,new Separator(),copy};
+        var commands=new List<Control>{open,design,newTable,properties,rename,delete,new Separator(),clear,truncate,copyTable,permissions,new Separator(),import,export,dump};
+        if(maintenance is not null)commands.Add(maintenance);
+        commands.Add(new Separator());commands.Add(copy);commands.Add(refresh);
+        menu.ItemsSource=commands;
         menu.Open(TableCatalogGrid);
     }
     private IReadOnlyList<DbObject> _catalogTables=[];
@@ -112,6 +139,53 @@ public sealed partial class MainWindow
     }
     private async void OpenCatalogTable(object? sender,TappedEventArgs e)
         =>await OpenCatalogSelection();
+    private async void OpenCatalogSelection(object? sender,RoutedEventArgs e)=>await OpenCatalogSelection();
+    private async void OpenCatalogDesign(object? sender,RoutedEventArgs e)
+    {
+        if(TableCatalogGrid.SelectedItem is not DbObject table||_catalogProfile is null){_vm.Log("请先选择数据表。");return;}
+        if(_vm.Busy||_vm.IsClosed(_catalogProfile)){_vm.Log("请先打开连接并等待当前任务完成。");return;}
+        await OpenDesigner(_catalogProfile,table);
+    }
+    private async Task OpenDesigner(ConnectionProfile profile,DbObject table)
+    {
+        try{
+            await using var provider=DbProviderFactory.Create(profile);
+            await new ObjectDesignerWindow(provider,profile.Kind,table.Database,table,async sql=>{
+                if(!await _vm.ExecuteDdlAsync(profile,sql))return false;
+                _vm.InvalidateObject(profile,table);await RefreshObjects(profile,table.Database);
+                if(TableCatalogPanel.IsVisible)await ShowTableCatalog();
+                return true;
+            }).ShowDialog<string?>(this);
+        }catch(Exception ex){_vm.Log(ex.Message);}
+    }
+    private async void DropCatalogSelection(object? sender,RoutedEventArgs e)
+    {
+        if(TableCatalogGrid.SelectedItem is not DbObject table||_catalogProfile is null){_vm.Log("请先选择数据表。");return;}
+        var profile=_catalogProfile;
+        if(_vm.Busy||_vm.IsClosed(profile)){_vm.Log("请先打开连接并等待当前任务完成。");return;}
+        if(!FlushGridEdits())return;
+        try{
+            _vm.EnsureObjectHasNoDrafts(profile,table);
+            if(!await Confirm($"永久删除 {table.Database}.{table.Schema}.{table.Name} 及其全部数据？此操作不可撤销。","永久删除"))return;
+            await using var provider=DbProviderFactory.Create(profile);
+            if(await _vm.ExecuteDdlAsync(profile,DatabaseDdl.DropTable(provider,table))){
+                _vm.InvalidateObject(profile,table);await RefreshObjects(profile,table.Database);
+                if(TableCatalogPanel.IsVisible)await ShowTableCatalog();
+            }
+        }catch(Exception ex){_vm.Log(ex.Message);}
+    }
+    private async void OpenCatalogImport(object? sender,RoutedEventArgs e)=>await OpenDatabaseToolsTab(6);
+    private async void OpenCatalogExport(object? sender,RoutedEventArgs e)=>await OpenDatabaseToolsTab(5);
+    private async Task OpenDatabaseToolsTab(int index)
+    {
+        if(_vm.Busy)return;
+        await new DatabaseToolsWindow(_vm.Connections,_vm.CurrentProfile??_vm.Connection,(sql,profile)=>_vm.NewQuery(sql,profile),index).ShowDialog(this);
+    }
+    private async Task OpenDatabaseToolsTab(int index,ObjectNode node)
+    {
+        if(_vm.Busy)return;
+        await new DatabaseToolsWindow(_vm.Connections,MenuProfile(node),(sql,profile)=>_vm.NewQuery(sql,profile),index).ShowDialog(this);
+    }
     private async Task OpenCatalogSelection()
     {
         if(_vm.Busy||_catalogLoading||TableCatalogGrid.SelectedItem is not DbObject table || _catalogProfile is null)return;

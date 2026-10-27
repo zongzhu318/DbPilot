@@ -39,7 +39,6 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();DataContext=_vm;InitializeCompletion();InitializeSqlContextMenu();
         Title=$"{AppInfo.DisplayName} — 数据库工作台";
-        AppNameText.Text=AppInfo.DisplayName;
         AppVersionText.Text=$"{AppInfo.DisplayName} {AppInfo.Version} · 数据库工具";
         HelpAbout.Header=$"关于 {AppInfo.DisplayName}";
         if(OperatingSystem.IsMacOS())AppTitleBar.IsVisible=false;
@@ -54,6 +53,7 @@ public sealed partial class MainWindow : Window
         _vm.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(MainViewModel.Busy))UpdateEditControls();if(e.PropertyName is nameof(MainViewModel.Busy) or nameof(MainViewModel.ConnectionStatus))UpdateConnectionControls();if(e.PropertyName==nameof(MainViewModel.HasTab))UpdateWorkspaceState();};
         Closed+=(_,_)=>{_databaseRequest?.Cancel();_catalogCancellation?.Cancel();};
         Results.RowEditEnded+=(_,_)=>UpdateEditControls();
+        Results.LoadingRow+=(_,e)=>e.Row.Header=e.Row.Index+1;
         Results.Sorting+=(_,e)=>{
             e.Handled=true;if(!FlushGridEdits() || _resultData is null)return;
             _sortAscending=_sortMember!=e.Column.SortMemberPath || !_sortAscending;_sortMember=e.Column.SortMemberPath;
@@ -135,13 +135,40 @@ public sealed partial class MainWindow : Window
     private async void DeleteConnection(object? sender,RoutedEventArgs e)
     {if(_vm.Connection is {} p && await Confirm($"删除连接“{p.Name}”？数据库中的数据不会被删除。"))await _vm.DeleteProfileAsync(p);}
     private void NewQuery(object? sender,RoutedEventArgs e){if(_vm.Busy)return;CloseCatalog();if(FlushGridEdits())_vm.NewQuery();}
-    private async void CloseTab(object? sender,RoutedEventArgs e)
+    private async void CloseTab(object? sender,RoutedEventArgs e)=>await CloseCurrentTab();
+    private async void CloseTabItem(object? sender,RoutedEventArgs e)
+    {
+        if(sender is not Control{DataContext:QueryTab tab})return;
+        await CloseTabAsync(tab);
+    }
+    private async Task CloseTabAsync(QueryTab tab)
+    {
+        if(!ReferenceEquals(QueryTabs.SelectedItem,tab)){QueryTabs.SelectedItem=tab;await Task.Yield();}
+        await CloseCurrentTab();
+    }
+    private async Task CloseCurrentTab()
     {
         if(_vm.Busy){_vm.Log("请先终止当前查询。");return;}
         bool valid=FlushGridEdits();
         if((!valid || _vm.Tab?.IsDirty==true || _vm.Tab?.Edits is {} edits && (edits.PendingCount>0 || edits.CommitUncertain)) && !await Confirm("该查询存在未保存脚本或未提交数据。确定放弃本地改动？","放弃本地改动"))return;
         if(_vm.Tab is {} tab)_vm.Tabs.Remove(tab);_vm.Tab=_vm.Tabs.LastOrDefault();
     }
+    private async void CloseOtherTabs(object? sender,RoutedEventArgs e)
+    {
+        if(_vm.Busy){_vm.Log("请先终止当前查询。");return;}
+        if(_vm.Tab is not {} keep)return;
+        var closing=_vm.Tabs.Where(t=>!ReferenceEquals(t,keep)).ToArray();
+        if(closing.Any(HasLocalChanges)&&!await Confirm("其他查询页存在未保存脚本或未提交数据。确定关闭并放弃这些改动？","关闭其它页"))return;
+        foreach(var tab in closing)_vm.Tabs.Remove(tab);
+    }
+    private async void CloseAllTabs(object? sender,RoutedEventArgs e)
+    {
+        if(_vm.Busy){_vm.Log("请先终止当前查询。");return;}
+        if(_vm.Tabs.Count==0)return;
+        if(_vm.Tabs.Any(HasLocalChanges)&&!await Confirm("部分查询页存在未保存脚本或未提交数据。确定全部关闭并放弃这些改动？","全部关闭"))return;
+        _vm.Tabs.Clear();_vm.Tab=null;
+    }
+    private static bool HasLocalChanges(QueryTab tab)=>tab.IsDirty||tab.Edits is {} edits&&(edits.PendingCount>0||edits.CommitUncertain);
     private void ChangeTab(object? sender,SelectionChangedEventArgs e)
     {
         if(SqlEditor is null)return;
@@ -149,6 +176,8 @@ public sealed partial class MainWindow : Window
         if(!FlushGridEdits()){_vm.Tab=_displayedTab;return;}
         CancelCompletion();_displayedTab=QueryTabs.SelectedItem as QueryTab;_loading=true;SqlEditor.Text=_displayedTab?.Sql??"";_loading=false;
         _vm.SelectTab(_displayedTab);PageLabel.Text=$"第 {(_displayedTab?.Page??0)+1} 页";
+        if(_displayedTab?.Table is not null&&_editorExpanded&&EditorPane.IsVisible){_autoEditorHidden=true;SetEditorVisible(false,remember:false);}
+        else if(_autoEditorHidden&&_displayedTab?.Table is null){_autoEditorHidden=false;SetEditorVisible(_editorExpanded,remember:false);}
         WhereFilter.Text=_displayedTab?.Filter??"";
         _=RefreshDatabasePicker();
     }
@@ -167,6 +196,14 @@ public sealed partial class MainWindow : Window
     }
     private async void RunSql(object? sender,RoutedEventArgs e)=>await Run();
     private async void RunSelectionSql(object? sender,RoutedEventArgs e)=>await Run(selectionOnly:true);
+    private async void RunCurrentStatement(object? sender,RoutedEventArgs e)
+    {
+        if(string.IsNullOrWhiteSpace(SqlEditor.Text)){ReportSqlProblem("请输入要执行的 SQL。");return;}
+        var statement=SqlTools.StatementAt(SqlEditor.Text,SqlEditor.CaretOffset,_vm.CurrentProfile?.Kind??DatabaseKind.MySQL,out int start,out int length);
+        if(statement is null){ReportSqlProblem("光标不在可执行的 SQL 语句中。");return;}
+        SqlEditor.Select(start,length);
+        await Run(selectionOnly:true);
+    }
     private async void ExplainSql(object? sender,RoutedEventArgs e)
     {
         var sql=string.IsNullOrWhiteSpace(SqlEditor.SelectedText)?SqlEditor.Text:SqlEditor.SelectedText;if(!string.IsNullOrWhiteSpace(sql)&&FlushGridEdits())await _vm.ExplainAsync(sql);
@@ -273,23 +310,80 @@ public sealed partial class MainWindow : Window
         _loadingResults=true;
         ResultPicker.ItemsSource=_vm.Tab?.ResultSets.Select((r,i)=>$"结果 {i+1} · {r.Rows.Count} 行").ToArray();
         ResultPicker.SelectedIndex=_vm.Tab?.ResultIndex??-1;
+        ResetResultSearch();
         _loadingResults=false;
         ObserveEditSession(_vm.Tab?.Edits);
         Results.ItemsSource=null;
         _resultRows?.Dispose();_resultRows=null;_sortMember=null;
-        Results.Columns.Clear();_resultData=new DataTable();
-        if(result is null){Results.ItemsSource=null;RowCount.Text="0 行";UpdateEditControls();return;}
+        Results.Columns.Clear();_resultData=new DataTable();_resultTruncated=false;
+        if(result is null){Results.ItemsSource=null;UpdateResultCount();UpdateEditControls();return;}
         _resultData=_vm.Tab?.Edits?.Data??ResultTable.Create(result);
+        _resultData.CaseSensitive=false;_resultTruncated=result.Truncated;
         var previews=_vm.Tab?.PreviewColumns;
         for(int i=0;i<result.Columns.Count;i++){
             var type=_resultData.Columns[i].DataType;
             var converter=type==typeof(DateTime)||type==typeof(DateTimeOffset)||type==typeof(DateOnly)?DateTimeValueConverter.Instance:null;
             Results.Columns.Add(new ResultTextColumn{ColumnIndex=i,Header=result.Columns[i],DisplayConverter=converter,Previewed=previews?.Contains(i)==true,Binding=new Binding("["+i+"]"){Mode=BindingMode.TwoWay,Converter=converter,ConverterParameter=type},IsReadOnly=_vm.Tab?.Edits is not {} edits || !edits.CanEditColumn(i),CanUserSort=true,SortMemberPath="c"+i,Width=new DataGridLength(150)});
         }
-        _resultRows=new ResultRows(_resultData.DefaultView);Results.ItemsSource=_resultRows;RowCount.Text=$"{result.Rows.Count} 行"+(result.Truncated?"（已截断）":"");
+        _resultRows=new ResultRows(_resultData.DefaultView);Results.ItemsSource=_resultRows;UpdateResultCount();
         UpdateEditControls();
     }
     private bool _loadingResults;
+    private bool _loadingSearch;
+    private string _resultFilter="";
+    private bool _resultTruncated;
+    private void ResetResultSearch()
+    {
+        _loadingSearch=true;ResultSearch.Text="";_loadingSearch=false;
+        _resultFilter="";ClearResultSearchButton.IsVisible=false;
+    }
+    private void UpdateResultCount()
+    {
+        if(_resultData is null){RowCount.Text="0 行";return;}
+        int total=_resultData.Rows.Cast<DataRow>().Count(r=>r.RowState!=DataRowState.Deleted);
+        int visible=_resultData.DefaultView.Count;
+        var suffix=_resultTruncated?"（已截断）":"";
+        RowCount.Text=visible!=total||_resultFilter.Length>0?$"显示 {visible} / {total} 行{suffix}":$"{total} 行{suffix}";
+    }
+    private bool ApplyResultFilter(string filter)
+    {
+        if(_resultData is null)return false;
+        try{
+            _resultData.DefaultView.RowFilter=filter;
+            _resultFilter=filter;
+            ClearResultSearchButton.IsVisible=filter.Length>0;
+            UpdateResultCount();
+            return true;
+        }catch(Exception ex) when(ex is DataException or InvalidOperationException or FormatException or ArgumentException){
+            _vm.Log("结果内筛选条件无效："+ex.Message,"Warn");
+            return false;
+        }
+    }
+    private void ResultSearchChanged(object? sender,TextChangedEventArgs e)
+    {
+        if(_loadingSearch||_resultData is null)return;
+        ApplyResultFilter(ResultFilter.Search(_resultData,ResultSearch.Text));
+    }
+    private void ResultSearchKeyDown(object? sender,KeyEventArgs e)
+    {
+        if(e.Key==Key.Escape){e.Handled=true;ClearResultSearch(sender,new RoutedEventArgs());}
+        else if(e.Key==Key.Enter){e.Handled=true;if(_resultData is not null)ApplyResultFilter(ResultFilter.Search(_resultData,ResultSearch.Text));}
+    }
+    private void ClearResultSearch(object? sender,RoutedEventArgs e)
+    {
+        _loadingSearch=true;ResultSearch.Text="";_loadingSearch=false;
+        ApplyResultFilter("");
+    }
+    private void FilterResultByCell(object? sender,RoutedEventArgs e)
+    {
+        if(_resultData is null || Results.SelectedItem is not ResultRow row || Results.CurrentColumn is not {} column){_vm.Log("请先选择要筛选的单元格。");return;}
+        int index=Results.Columns.IndexOf(column);
+        if(index<0)return;
+        var filter=ResultFilter.Exact(_resultData,index,row[index]);
+        if(filter is null){_vm.Log("二进制字段不支持按单元格值筛选。","Warn");return;}
+        _loadingSearch=true;ResultSearch.Text="";_loadingSearch=false;
+        if(ApplyResultFilter(filter))_vm.Log($"已按 {Results.Columns[index].Header} 列的单元格值筛选结果。");
+    }
     private void ChangeResult(object? sender,SelectionChangedEventArgs e)
     {
         if(!_loadingResults && FlushGridEdits())_vm.SelectResult(ResultPicker.SelectedIndex);
@@ -338,6 +432,41 @@ public sealed partial class MainWindow : Window
         }
         await clipboard.SetTextAsync(string.Join("\t",values.Select((v,i)=>previews?.Contains(i)==true?CopyText(v):SqlTools.Display(v))));
     }
+    private async void CopyRowAsInsert(object? sender,RoutedEventArgs e)
+    {
+        if(Results.SelectedItem is not ResultRow row||Clipboard is not {} clipboard||_vm.Tab?.Result is not {} result)return;
+        var kind=_vm.CurrentProfile?.Kind??DatabaseKind.MySQL;
+        var table=Identifier(_vm.Tab?.Table?.Name??"table_name",kind);
+        var columns=string.Join(", ",result.Columns.Select(c=>Identifier(c,kind)));
+        var values=string.Join(", ",row.Row.ItemArray.Select(v=>Literal(v,kind)));
+        await clipboard.SetTextAsync($"INSERT INTO {table} ({columns}) VALUES ({values});");
+    }
+    private async void CopyRowAsUpdate(object? sender,RoutedEventArgs e)
+    {
+        if(Results.SelectedItem is not ResultRow row||Clipboard is not {} clipboard||_vm.Tab?.Result is not {} result)return;
+        var kind=_vm.CurrentProfile?.Kind??DatabaseKind.MySQL;
+        var table=Identifier(_vm.Tab?.Table?.Name??"table_name",kind);
+        var metadata=_vm.Tab?.Edits?.Columns;
+        bool[] keys=Enumerable.Range(0,result.Columns.Count).Select(i=>metadata is not null&&i<metadata.Count&&metadata[i].PrimaryKey).ToArray();
+        if(!keys.Any(k=>k))keys[0]=true;
+        var assignments=Enumerable.Range(0,result.Columns.Count).Where(i=>!keys[i]).Select(i=>$"{Identifier(result.Columns[i],kind)} = {Literal(row.Row[i],kind)}").ToArray();
+        var predicate=string.Join(" AND ",Enumerable.Range(0,result.Columns.Count).Where(i=>keys[i]).Select(i=>row.Row[i] is null or DBNull?$"{Identifier(result.Columns[i],kind)} IS NULL":$"{Identifier(result.Columns[i],kind)} = {Literal(row.Row[i],kind)}"));
+        await clipboard.SetTextAsync(assignments.Length==0
+            ?$"-- 当前行只有主键字段，无需更新：{table} WHERE {predicate}"
+            :$"UPDATE {table} SET {string.Join(", ",assignments)} WHERE {predicate};");
+    }
+    private static string Identifier(string name,DatabaseKind kind)=>kind switch{
+        DatabaseKind.PostgreSQL=>"\""+name.Replace("\"","\"\"")+"\"",
+        DatabaseKind.SqlServer=>"["+name.Replace("]","]]")+"]",
+        _=>"`"+name.Replace("`","``")+"`"};
+    private static string Literal(object? value,DatabaseKind kind)=>value switch{
+        null or DBNull=>"NULL",
+        bool b=>kind==DatabaseKind.PostgreSQL?(b?"TRUE":"FALSE"):(b?"1":"0"),
+        byte[] bytes=>"0x"+Convert.ToHexString(bytes),
+        DateTime date=>"'"+date.ToString("yyyy-MM-dd HH:mm:ss.fff",System.Globalization.CultureInfo.InvariantCulture)+"'",
+        DateTimeOffset date=>"'"+date.ToString("yyyy-MM-dd HH:mm:ss.fff zzz",System.Globalization.CultureInfo.InvariantCulture)+"'",
+        string text=>"'"+text.Replace("'","''")+"'",
+        _=>Convert.ToString(value,System.Globalization.CultureInfo.InvariantCulture)??"NULL"};
     private async void CopyObjectName(object? sender,RoutedEventArgs e)
     {if(ObjectTree.SelectedItem is ObjectNode{Object:{} obj} && Clipboard is not null)await Clipboard.SetTextAsync(obj.ToString());}
     private async void ViewStructure(object? sender,RoutedEventArgs e)
@@ -405,9 +534,9 @@ public sealed partial class MainWindow : Window
             await probe.DisposeAsync();
         }
         await _vm.Guard(async ct=>{
-            var file=await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions{Title="导出当前结果（CSV / JSON / SQL）",SuggestedFileName="result.csv",FileTypeChoices=[new FilePickerFileType("CSV"){Patterns=["*.csv"]},new FilePickerFileType("JSON"){Patterns=["*.json"]},new FilePickerFileType("SQL INSERT"){Patterns=["*.sql"]}]});
+            var file=await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions{Title="导出当前结果（CSV / JSON / SQL / Excel）",SuggestedFileName="result.csv",FileTypeChoices=[new FilePickerFileType("CSV"){Patterns=["*.csv"]},new FilePickerFileType("JSON"){Patterns=["*.json"]},new FilePickerFileType("SQL INSERT"){Patterns=["*.sql"]},new FilePickerFileType("Excel 工作簿"){Patterns=["*.xlsx"]}]});
             if(file is null)return;var path=file.TryGetLocalPath()??throw new InvalidOperationException("请选择本地文件。");
-            string format=Path.GetExtension(path).ToLowerInvariant() switch{".json"=>"json",".sql"=>"sql",_=>"csv"};
+            string format=Path.GetExtension(path).ToLowerInvariant() switch{".json"=>"json",".sql"=>"sql",".xlsx"=>"xlsx",_=>"csv"};
             var selected=result;
             if(needsFull){
                 await using var reader=LargeValueReader.Create(tab,result,out var reason)??throw new InvalidOperationException("大字段完整内容无法读取："+reason);
@@ -458,7 +587,11 @@ public sealed partial class MainWindow : Window
         }
     }
     private void TabsPointerPressed(object? sender,PointerPressedEventArgs e)
-    {_dragStart=e.GetPosition(QueryTabs);_dragTab=ItemAt<QueryTab>(e.Source);if(_dragTab is not null&&e.GetCurrentPoint(QueryTabs).Properties.IsLeftButtonPressed)CloseCatalog();}
+    {
+        _dragStart=e.GetPosition(QueryTabs);_dragTab=ItemAt<QueryTab>(e.Source);
+        if(_dragTab is {} middle&&e.GetCurrentPoint(QueryTabs).Properties.IsMiddleButtonPressed){e.Handled=true;_=CloseTabAsync(middle);return;}
+        if(_dragTab is not null&&e.GetCurrentPoint(QueryTabs).Properties.IsLeftButtonPressed)CloseCatalog();
+    }
     private async void TabsPointerMoved(object? sender,PointerEventArgs e)
     {
         if(_dragTab is not {} tab || !e.GetCurrentPoint(QueryTabs).Properties.IsLeftButtonPressed || Distance(e.GetPosition(QueryTabs),_dragStart)<8)return;

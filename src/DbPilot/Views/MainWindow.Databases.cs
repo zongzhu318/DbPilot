@@ -89,12 +89,14 @@ public sealed partial class MainWindow
     }
     private async void CreateTable(object? sender,RoutedEventArgs e)
     {
-        try{
-            var profile=RequireContext(true);await using var provider=DbProviderFactory.Create(profile);
-            await new ObjectDesignerWindow(provider,profile.Kind,profile.Database,null,async sql=>{
-                if(!await _vm.ExecuteDdlAsync(profile,sql))return false;await RefreshObjects(profile,profile.Database);return true;
-            },true).ShowDialog<string?>(this);
-        }catch(Exception ex){_vm.Log(ex.Message);}
+        try{await CreateTableAsync(RequireContext(true));}catch(Exception ex){_vm.Log(ex.Message);}
+    }
+    private async Task CreateTableAsync(ConnectionProfile profile)
+    {
+        await using var provider=DbProviderFactory.Create(profile);
+        await new ObjectDesignerWindow(provider,profile.Kind,profile.Database,null,async sql=>{
+            if(!await _vm.ExecuteDdlAsync(profile,sql))return false;await RefreshObjects(profile,profile.Database);return true;
+        },true).ShowDialog<string?>(this);
     }
     private (ConnectionProfile Profile,DbObject Table) SelectedTable()
     {
@@ -127,10 +129,14 @@ public sealed partial class MainWindow
     private async void DropTable(object? sender,RoutedEventArgs e)
     {
         try{
-            var (profile,table)=SelectedTable();if(!FlushGridEdits())return;_vm.EnsureObjectHasNoDrafts(profile,table);
-            if(!await Confirm($"永久删除 {table.Database}.{table.Schema}.{table.Name} 及其全部数据？此操作不可撤销。"+(table.Kind=="超级表"?"该超级表的所有子表也会受影响。":""),"永久删除"))return;
-            _vm.EnsureObjectHasNoDrafts(profile,table);await using var provider=DbProviderFactory.Create(profile);
-            if(await _vm.ExecuteDdlAsync(profile,DatabaseDdl.DropTable(provider,table))){_vm.InvalidateObject(profile,table);await RefreshObjects(profile,table.Database);}
+            var (profile,table)=SelectedTable();await DropTableAsync(profile,table);
         }catch(Exception ex){_vm.Log(ex.Message);}
+    }
+    private async Task DropTableAsync(ConnectionProfile profile,DbObject table)
+    {
+        if(!FlushGridEdits())return;_vm.EnsureObjectHasNoDrafts(profile,table);
+        if(!await Confirm($"永久删除 {table.Database}.{table.Schema}.{table.Name} 及其全部数据？此操作不可撤销。"+(table.Kind=="超级表"?"该超级表的所有子表也会受影响。":""),"永久删除"))return;
+        _vm.EnsureObjectHasNoDrafts(profile,table);await using var provider=DbProviderFactory.Create(profile);
+        if(await _vm.ExecuteDdlAsync(profile,DatabaseDdl.DropTable(provider,table))){_vm.InvalidateObject(profile,table);await RefreshObjects(profile,table.Database);if(TableCatalogPanel.IsVisible)await ShowTableCatalog();}
     }
 }

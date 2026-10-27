@@ -15,6 +15,8 @@ public sealed class ConnectionDialog : Window
     private readonly TextBlock _message=DialogUi.Status();
     private readonly Guid _id;
     private readonly string _legacyGroup;
+    private readonly bool _favorite;
+    private readonly string _color;
     private readonly CheckBox _ssh=new(){Content="通过 SSH 隧道连接"};
     private readonly TextBox _sshHost=new(),_sshPort=new(),_sshUser=new(),_sshPassword=new(){PasswordChar='●'},_keyPath=new(),_passphrase=new(){PasswordChar='●'},_fingerprint=new(),_poolMin=new(),_poolMax=new();
     private CancellationTokenSource? _test;
@@ -24,9 +26,11 @@ public sealed class ConnectionDialog : Window
         Title=heading; Width=660; Height=780; MinWidth=620; MinHeight=640; CanResize=false; WindowStartupLocation=WindowStartupLocation.CenterOwner;
         Classes.Add("dialog");
         DialogUi.EnableEscapeToClose(this);
-        var p=original ?? new ConnectionProfile(); _id=p.Id;_legacyGroup=p.Group;
+        var p=original ?? new ConnectionProfile(); _id=p.Id;_legacyGroup=p.Group;_favorite=p.Favorite;_color=p.Color;
         _name.Text=p.Name;_host.Text=p.Host;_port.Text=p.Port.ToString();_database.Text=p.Database;_username.Text=p.Username;_password.Text=p.Password;_timeout.Text=p.Timeout.ToString();_timezone.Text=p.Timezone;
-        _kind.SelectedItem=p.Kind; _ssl.IsChecked=p.Ssl; _publicKey.IsChecked=p.AllowPublicKeyRetrieval; _integrated.IsChecked=p.IntegratedSecurity;
+        _kind.SelectedItem=p.Kind; _ssl.IsChecked=p.Ssl;
+        // MySQL 8 默认 caching_sha2_password：不启用 TLS 时必须允许获取 RSA 公钥，否则新连接直接认证失败。
+        _publicKey.IsChecked=original is null||p.AllowPublicKeyRetrieval; _integrated.IsChecked=p.IntegratedSecurity;
         _poolMin.Text=p.MinimumPoolSize.ToString();_poolMax.Text=p.MaximumPoolSize.ToString();_ssh.IsChecked=p.Ssh.Enabled;
         _sshHost.Text=p.Ssh.Host;_sshPort.Text=p.Ssh.Port.ToString();_sshUser.Text=p.Ssh.Username;_sshPassword.Text=p.Ssh.Password;_keyPath.Text=p.Ssh.PrivateKeyPath;_passphrase.Text=p.Ssh.Passphrase;_fingerprint.Text=p.Ssh.HostKeyFingerprint;
 
@@ -89,7 +93,7 @@ public sealed class ConnectionDialog : Window
         if(!int.TryParse(_timeout.Text,out var timeout)||timeout is <1 or >300)throw new InvalidOperationException("超时必须在 1–300 秒之间。");
         if(!int.TryParse(_poolMin.Text,out var min)||!int.TryParse(_poolMax.Text,out var max)||min<0||max<1||max>10000||min>max)throw new InvalidOperationException("连接池范围应满足 0 ≤ 最小值 ≤ 最大值 ≤ 10000，最大值至少为 1。");
         if(!int.TryParse(_sshPort.Text,out var sshPort)||sshPort is <1 or >65535)throw new InvalidOperationException("SSH 端口无效。");
-        return new ConnectionProfile{Id=_id,Name=_name.Text.Trim(),Group=_legacyGroup,Kind=(DatabaseKind)_kind.SelectedItem!,Host=_host.Text.Trim(),Port=port,Database=_database.Text?.Trim()??"",Username=_username.Text??"",Password=_password.Text??"",Timeout=timeout,Ssl=_ssl.IsChecked==true,AllowPublicKeyRetrieval=_publicKey.IsChecked==true,IntegratedSecurity=_integrated.IsChecked==true,Timezone=_timezone.Text??"Asia/Shanghai",MinimumPoolSize=min,MaximumPoolSize=max,
+        return new ConnectionProfile{Id=_id,Name=_name.Text.Trim(),Group=_legacyGroup,Kind=(DatabaseKind)_kind.SelectedItem!,Host=_host.Text.Trim(),Port=port,Database=_database.Text?.Trim()??"",Username=_username.Text??"",Password=_password.Text??"",Timeout=timeout,Ssl=_ssl.IsChecked==true,AllowPublicKeyRetrieval=_publicKey.IsChecked==true,IntegratedSecurity=_integrated.IsChecked==true,Timezone=_timezone.Text??"Asia/Shanghai",MinimumPoolSize=min,MaximumPoolSize=max,Favorite=_favorite,Color=_color,
             Ssh=new(){Enabled=_ssh.IsChecked==true,Host=_sshHost.Text?.Trim()??"",Port=sshPort,Username=_sshUser.Text??"",Password=_sshPassword.Text??"",PrivateKeyPath=_keyPath.Text??"",Passphrase=_passphrase.Text??"",HostKeyFingerprint=_fingerprint.Text?.Trim()??""}};
     }
 }

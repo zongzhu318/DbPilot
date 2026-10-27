@@ -11,8 +11,16 @@ public sealed partial class MainViewModel
     public bool IsOpen(ConnectionProfile profile)=>_connected.Contains(profile.Id);
     public ConnectionProfile DefaultProfile(ConnectionProfile profile)=>CloneForDatabase(profile,_selectedDatabases.GetValueOrDefault(profile.Id,profile.Database));
     public ConnectionProfile? CurrentProfile=>Connection is not {} p?null:Tab?.Connection?.Id==p.Id?Tab.Connection:CloneForDatabase(p,_selectedDatabases.GetValueOrDefault(p.Id,p.Database));
-    private static string ConnectionIconColor(ConnectionProfile p)=>p.Kind switch{DatabaseKind.MySQL=>"#2E9E63",DatabaseKind.PostgreSQL=>"#3E7FBF",DatabaseKind.SqlServer=>"#D9822B",_=>"#12A4A4"};
-    private static string ConnectionNodeLabel(ConnectionProfile p)=>p.Name;
+    private static string ConnectionIconColor(ConnectionProfile p)=>string.IsNullOrWhiteSpace(p.Color)?p.Kind switch{DatabaseKind.MySQL=>"#2E9E63",DatabaseKind.PostgreSQL=>"#3E7FBF",DatabaseKind.SqlServer=>"#D9822B",_=>"#12A4A4"}:p.Color;
+    private static string ConnectionNodeLabel(ConnectionProfile p)=>(p.Favorite?"★ ":"")+p.Name;
+    public void RefreshConnectionVisuals(ConnectionProfile profile)
+    {
+        foreach(var node in Nodes.Where(n=>n.Profile.Id==profile.Id)){node.Label=ConnectionNodeLabel(profile);node.IconColor=ConnectionIconColor(profile);}
+    }
+    public async Task SaveConnectionPreferencesAsync(ConnectionProfile profile)
+    {
+        await Guard(async _=>{await Store.SaveConnectionsAsync(Connections);RefreshConnectionVisuals(profile);Log("连接外观已保存。");});
+    }
     private void UpdateConnectionNodes(ConnectionProfile profile,bool clear=false){
         foreach(var node in Nodes.Where(n=>n.Profile.Id==profile.Id)){
             node.Label=ConnectionNodeLabel(profile);node.IconColor=ConnectionIconColor(profile);node.IsOpen=_connected.Contains(profile.Id);

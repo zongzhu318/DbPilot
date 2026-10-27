@@ -197,6 +197,8 @@ Dispatcher.UIThread.RunJobs();
 var mainVm=(DbPilot.ViewModels.MainViewModel)window.DataContext!;
 Check(window.FindControl<TextEditor>("SqlEditor") is not null,"main window creates SQL editor");
 Check(mainVm.Tabs.Count==0&&!window.FindControl<Border>("EditorPane")!.IsVisible&&!window.FindControl<Grid>("ConnectionBar")!.IsVisible&&!window.FindControl<Grid>("QueryBar")!.IsVisible&&!window.FindControl<Grid>("ResultsPane")!.IsVisible&&window.FindControl<Grid>("StartPanel")!.IsVisible,"fresh window starts on a clean empty workspace");
+window.UpdateLayout();
+Check(window.FindControl<Grid>("StartPanel")!.GetVisualDescendants().OfType<TextBlock>().Any(t=>t.Text?.Contains("欢迎使用 DbPilot")==true&&t.Bounds.Width>0),"start panel renders its welcome content");
 mainVm.NewQuery();Dispatcher.UIThread.RunJobs();
 Check(window.FindControl<Border>("EditorPane")!.IsVisible&&window.FindControl<Grid>("ConnectionBar")!.IsVisible&&window.FindControl<Grid>("QueryBar")!.IsVisible&&!window.FindControl<Grid>("StartPanel")!.IsVisible,"creating a query reveals the editor and hides the empty workspace");
 Check(window.FindControl<TextEditor>("SqlEditor")!.Text.Contains("SELECT 1"),"new SQL tab populates editor");
@@ -212,13 +214,20 @@ Check(window.FindControl<DataGrid>("Results") is not null,"main window creates r
 Check(window.FindControl<TreeView>("ObjectTree") is not null,"main window creates object tree");
 Check(!window.FindControl<Button>("CommitEditsButton")!.IsEnabled,"arbitrary SQL result has no enabled commit action");
 var buildMenu=typeof(MainWindow).GetMethod("BuildTreeContextMenu",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
-string[] MenuFor(ObjectNode node){buildMenu.Invoke(window,[node]);return window.FindControl<TreeView>("ObjectTree")!.ContextMenu!.ItemsSource!.OfType<MenuItem>().Select(m=>m.Header?.ToString()??"").ToArray();}
+MenuItem[] MenuItemsFor(ObjectNode node){buildMenu.Invoke(window,[node]);return window.FindControl<TreeView>("ObjectTree")!.ContextMenu!.ItemsSource!.OfType<MenuItem>().ToArray();}
+string[] MenuFor(ObjectNode node)=>MenuItemsFor(node).Select(m=>m.Header?.ToString()??"").ToArray();
 var connectionMenu=MenuFor(new(){Profile=profile,IsConnection=true});
 Check(connectionMenu.Contains("打开连接")&&connectionMenu.Contains("编辑连接")&&!connectionMenu.Contains("删除表"),"connection context menu contains only connection actions");
-var databaseMenu=MenuFor(new(){Profile=profile,Database="sandbox"});
+Check(connectionMenu.Contains("命令列界面")&&connectionMenu.Contains("运行 SQL 文件")&&connectionMenu.Contains("添加星标")&&connectionMenu.Contains("连接信息")&&connectionMenu.Contains("颜色")&&connectionMenu.Contains("管理组"),"connection context menu exposes Navicat free actions");
+var databaseMenu=MenuFor(new(){Profile=profile,Database="sandbox",Kind=ObjectNodeKind.Database});
 Check(databaseMenu.Contains("查看表列表")&&databaseMenu.Contains("新建表")&&!databaseMenu.Contains("编辑连接"),"database context menu contains database actions");
+Check(databaseMenu.Contains("运行 SQL 文件")&&databaseMenu.Contains("删除数据库")&&databaseMenu.Contains("转储 SQL 文件")&&databaseMenu.Contains("打开 / 加载对象"),"database context menu exposes Navicat free actions");
 var tableMenu=MenuFor(new(){Profile=profile,Database="sandbox",Object=new("sandbox","public","items","表")});
 Check(tableMenu.Contains("查看表结构与建表语句")&&tableMenu.Contains("删除表")&&!tableMenu.Contains("关闭连接"),"table context menu contains table actions");
+Check(tableMenu.Contains("设计表")&&tableMenu.Contains("清空表")&&tableMenu.Contains("截断表")&&tableMenu.Contains("复制表")&&tableMenu.Contains("设置权限")&&tableMenu.Contains("维护")&&tableMenu.Contains("转储 SQL 文件")&&tableMenu.Contains("重命名表"),"table context menu exposes Navicat free actions");
+var tdItems=MenuItemsFor(new(){Profile=new ConnectionProfile{Name="td",Kind=DatabaseKind.TDengine},Database="sandbox",Object=new("sandbox","","meters","超级表")});
+bool tdItem(string header,bool enabled)=>tdItems.Any(i=>i.Header?.ToString()==header&&i.IsEnabled==enabled);
+Check(tdItem("截断表",false)&&tdItem("复制表",false)&&tdItem("设置权限",false)&&!tdItems.Any(i=>i.Header?.ToString()=="维护")&&tdItems.Any(i=>i.Header?.ToString()=="清空表"),"TDengine table menu disables unsupported maintenance actions while keeping delete");
 var tree=window.FindControl<TreeView>("ObjectTree")!;
 var treeProfile=new ConnectionProfile{Name="tree-probe",Kind=DatabaseKind.MySQL};
 var treeConnectionNode=new ObjectNode{Label=treeProfile.Name,Profile=treeProfile,IsConnection=true,Kind=ObjectNodeKind.Connection,Loaded=true};
@@ -259,6 +268,16 @@ using(var rendered=window.CaptureRenderedFrame()){
 }
 var editGrid=window.FindControl<DataGrid>("Results")!;
 var displayedRows=(ResultRows)editGrid.ItemsSource!;
+var searchBox=window.FindControl<TextBox>("ResultSearch")!;
+searchBox.Text="zebra";Dispatcher.UIThread.RunJobs();
+Check(displayedRows.Count==1&&window.FindControl<TextBlock>("RowCount")!.Text!.Contains("显示 1 / 2 行"),"result search filters visible rows and reports match count");
+searchBox.Text="";Dispatcher.UIThread.RunJobs();
+Check(displayedRows.Count==2,"clearing search restores every result row");
+editGrid.SelectedItem=displayedRows[0];editGrid.CurrentColumn=editGrid.Columns[1];Dispatcher.UIThread.RunJobs();
+typeof(MainWindow).GetMethod("FilterResultByCell",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(window,[null,new Avalonia.Interactivity.RoutedEventArgs()]);Dispatcher.UIThread.RunJobs();
+Check(displayedRows.Count==1&&window.FindControl<TextBlock>("RowCount")!.Text!.Contains("显示 1 / 2 行"),"cell filter isolates the selected value");
+typeof(MainWindow).GetMethod("ClearResultSearch",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(window,[null,new Avalonia.Interactivity.RoutedEventArgs()]);Dispatcher.UIThread.RunJobs();
+Check(displayedRows.Count==2,"clear action removes the cell filter");
 editGrid.SelectedItem=displayedRows[0];editGrid.CurrentColumn=editGrid.Columns[1];editGrid.Focus();
 Check(editGrid.BeginEdit(),"result grid can enter a real cell editing control");Dispatcher.UIThread.RunJobs();
 var cellEditor=editGrid.GetVisualDescendants().OfType<TextBox>().First(t=>t.IsVisible);
@@ -292,6 +311,7 @@ if(!string.IsNullOrEmpty(darkPreview)){
 }
 var dialog=new ConnectionDialog();dialog.Show(window);Dispatcher.UIThread.RunJobs();
 Check(dialog.IsVisible,"connection dialog opens without XAML or binding exceptions");
+Check(dialog.GetVisualDescendants().OfType<CheckBox>().Any(c=>c.Content?.ToString()?.Contains("RSA")==true&&c.IsChecked==true),"new connection defaults to MySQL RSA public key retrieval");
 var toolsWindow=new DatabaseToolsWindow([profile],profile,(_,_)=>{});toolsWindow.Show(window);Dispatcher.UIThread.RunJobs();
 var toolTabs=toolsWindow.GetVisualDescendants().OfType<TabControl>().First();
 for(int i=0;i<toolTabs.ItemCount;i++){toolTabs.SelectedIndex=i;Dispatcher.UIThread.RunJobs();}

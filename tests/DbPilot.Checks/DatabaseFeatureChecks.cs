@@ -136,7 +136,7 @@ internal static class DatabaseFeatureChecks
         typeof(MainWindow).GetMethod("CloseCatalog",flags)!.Invoke(window,null);
         var retainedTab=vm.Tab!;retainedTab.Sql="SELECT 'keep this draft'";
         var activate=typeof(MainWindow).GetMethod("TryUseTreeContext",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!;
-        activate.Invoke(window,[new ObjectNode{Profile=profile,Database="sales"}]);Dispatcher.UIThread.RunJobs();
+        activate.Invoke(window,[new ObjectNode{Profile=profile,Database="sales"},true]);Dispatcher.UIThread.RunJobs();
         check(!ReferenceEquals(vm.Tab,retainedTab)&&retainedTab.Sql=="SELECT 'keep this draft'"&&retainedTab.Connection?.Database=="warehouse"&&vm.CurrentProfile?.Database=="sales","tree navigation preserves prior query and database in its original tab");
         vm.Tabs.Remove(retainedTab);
         vm.Tabs.Remove(vm.Tab!);vm.Connection=originalConnection;vm.Tab=originalTab;vm.Connections.Remove(profile);cached.Remove(profile.Id);Dispatcher.UIThread.RunJobs();

@@ -75,9 +75,9 @@ public sealed partial class MainWindow
     private TableEditSession? _shownEdits;
     private void ObserveEditSession(TableEditSession? session)
     {
-        if(_shownEdits is not null)_shownEdits.Changed-=UpdateEditControls;
+        if(_shownEdits is not null){_shownEdits.Changed-=UpdateEditControls;_shownEdits.Changed-=UpdateResultCount;}
         _shownEdits=session;
-        if(_shownEdits is not null)_shownEdits.Changed+=UpdateEditControls;
+        if(_shownEdits is not null){_shownEdits.Changed+=UpdateEditControls;_shownEdits.Changed+=UpdateResultCount;}
     }
     private void UpdateEditControls()
     {

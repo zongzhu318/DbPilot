@@ -33,6 +33,20 @@ public static class CsvData
             var values=new object?[mapping.Count];for(int i=0;i<values.Length;i++){var text=row[mapping[i]];values[i]=DataValues.ForColumn(text=="\\N"?null:text.StartsWith("\\\\",StringComparison.Ordinal)?text[1..]:text,columns[i],kind);}yield return values;
         }
     }
+    public static async IAsyncEnumerable<object?[]> MapAsync(IAsyncEnumerable<string[]> rows,bool header,IReadOnlyList<int> mapping,IReadOnlyList<ColumnInfo> columns,DatabaseKind kind,bool padMissing,[EnumeratorCancellation] CancellationToken ct)
+    {
+        int line=0;await foreach(var row in rows.WithCancellation(ct)){
+            line++;if(header&&line==1)continue;
+            if(row.All(string.IsNullOrEmpty))continue;
+            if(mapping.Any(i=>i<0||(!padMissing&&i>=row.Length)))throw new FormatException($"表格记录 {line} 字段数量不匹配。");
+            var values=new object?[mapping.Count];for(int i=0;i<values.Length;i++){
+                var text=mapping[i]<row.Length?row[mapping[i]]:null;
+                if(padMissing&&string.IsNullOrEmpty(text))text=null;
+                values[i]=DataValues.ForColumn(text=="\\N"?null:text is not null&&text.StartsWith("\\\\",StringComparison.Ordinal)?text[1..]:text,columns[i],kind);
+            }
+            yield return values;
+        }
+    }
 }
 public static class DataTransfer
 {
@@ -45,7 +59,19 @@ public static class DataTransfer
     }
     public static async Task<long> ExportAsync(IDbProvider provider,ConnectionProfile profile,DbObject table,Stream output,string format,IProgress<TransferProgress>? progress,CancellationToken ct)
     {
-        if(format is not ("csv" or "json" or "sql"))throw new ArgumentException("不支持的导出格式");
+        if(format is not ("csv" or "json" or "sql" or "xlsx"))throw new ArgumentException("不支持的导出格式");
+        if(format=="xlsx"){
+            var columns=await provider.ColumnsAsync(table,ct);
+            long exported=0;
+            async IAsyncEnumerable<object?[]> Rows([EnumeratorCancellation] CancellationToken token){
+                await foreach(var batch in TableBatches(provider,profile,table,token))
+                    foreach(var row in batch.Rows){
+                        token.ThrowIfCancellationRequested();yield return row;
+                        if(++exported%500==0)progress?.Report(new(exported,"导出中"));
+                    }
+            }
+            return await XlsxWorkbook.WriteAsync(output,columns.Select(c=>c.Name).ToArray(),Rows(ct),table.Name,ct);
+        }
         var metadata=format=="sql"?await provider.ColumnsAsync(table,ct):[];
         await using var writer=new StreamWriter(output,new UTF8Encoding(format=="csv"),leaveOpen:true);bool first=true;long count=0;
         bool identity=format=="sql"&&profile.Kind==DatabaseKind.SqlServer&&metadata.Any(c=>c.IsIdentity);
@@ -82,14 +108,17 @@ public static class DataTransfer
         }
         return await target.InsertRowsAsync(targetTable,names,Rows(ct),progress,ct);
     }
-    public static async Task BackupAsync(IDbProvider provider,ConnectionProfile profile,IReadOnlyList<DbObject> tables,Stream output,IProgress<TransferProgress>? progress,CancellationToken ct)
+    public static Task BackupAsync(IDbProvider provider,ConnectionProfile profile,IReadOnlyList<DbObject> tables,Stream output,IProgress<TransferProgress>? progress,CancellationToken ct)
+        =>DumpAsync(provider,profile,tables,output,true,true,progress,ct);
+    public static async Task DumpAsync(IDbProvider provider,ConnectionProfile profile,IReadOnlyList<DbObject> tables,Stream output,bool structure,bool data,IProgress<TransferProgress>? progress,CancellationToken ct)
     {
+        if(!structure&&!data)throw new ArgumentException("请选择要转储的结构或数据。");
         await using(var writer=new StreamWriter(output,new UTF8Encoding(false),leaveOpen:true)){
-            await writer.WriteLineAsync($"-- DbPilot logical backup · {profile.Kind} · {DateTimeOffset.UtcNow:O}");
+            await writer.WriteLineAsync($"-- DbPilot SQL 转储 · {profile.Kind} · {(structure&&data?"结构+数据":structure?"仅结构":"仅数据")} · {DateTimeOffset.UtcNow:O}");
             await writer.FlushAsync(ct);
         }
-        var foreignKeys=await provider.ForeignKeysAsync(profile.Database,ct);
-        if(profile.Kind is DatabaseKind.PostgreSQL or DatabaseKind.SqlServer){
+        var foreignKeys=structure?await provider.ForeignKeysAsync(profile.Database,ct):[];
+        if(structure&&profile.Kind is DatabaseKind.PostgreSQL or DatabaseKind.SqlServer){
             await using var schemas=new StreamWriter(output,new UTF8Encoding(false),leaveOpen:true);
             foreach(var schema in tables.Select(t=>t.Schema).Where(s=>s.Length>0).Distinct()){
                 var sql=profile.Kind==DatabaseKind.PostgreSQL?$"CREATE SCHEMA IF NOT EXISTS {provider.Quote(schema)};":$"IF SCHEMA_ID({DataValues.String(schema,profile.Kind)}) IS NULL EXEC({DataValues.String("CREATE SCHEMA "+provider.Quote(schema),profile.Kind)});\nGO";
@@ -98,18 +127,20 @@ public static class DataTransfer
             await schemas.FlushAsync(ct);
         }
         foreach(var table in tables){
-            var columns=await provider.ColumnsAsync(table,ct);
-            await using(var writer=new StreamWriter(output,new UTF8Encoding(false),leaveOpen:true)){
+            var columns=structure?await provider.ColumnsAsync(table,ct):[];
+            if(structure){
+                await using var writer=new StreamWriter(output,new UTF8Encoding(false),leaveOpen:true);
                 await writer.WriteLineAsync(SchemaTools.CreateTable(provider,profile.Kind,table,columns));if(profile.Kind==DatabaseKind.SqlServer)await writer.WriteLineAsync("GO");
                 await writer.FlushAsync(ct);
             }
-            await ExportAsync(provider,profile,table,output,"sql",progress,ct);
-            if(profile.Kind==DatabaseKind.PostgreSQL){
+            if(data)await ExportAsync(provider,profile,table,output,"sql",progress,ct);
+            if(structure&&data&&profile.Kind==DatabaseKind.PostgreSQL){
                 await using var sequences=new StreamWriter(output,new UTF8Encoding(false),leaveOpen:true);
                 foreach(var identity in columns.Where(c=>c.IsIdentity))await sequences.WriteLineAsync(($"SELECT setval(pg_get_serial_sequence({DataValues.String(provider.Qualified(table),profile.Kind)}, {DataValues.String(identity.Name,profile.Kind)}), COALESCE(MAX({provider.Quote(identity.Name)}), 1), MAX({provider.Quote(identity.Name)}) IS NOT NULL) FROM {provider.Qualified(table)};").AsMemory(),ct);
                 await sequences.FlushAsync(ct);
             }
         }
+        if(!structure)return;
         await using var tail=new StreamWriter(output,new UTF8Encoding(false),leaveOpen:true);
         foreach(var group in foreignKeys.Where(f=>tables.Any(t=>t.Name==f.Table&&(t.Schema==f.Schema||profile.Kind==DatabaseKind.MySQL&&t.Database==f.Schema))).GroupBy(f=>(f.Schema,f.Table,f.Name))){
             await tail.WriteLineAsync(SchemaTools.ForeignKeySql(provider,new(profile.Database,group.Key.Schema,group.Key.Table,"表"),group.ToArray()));if(profile.Kind==DatabaseKind.SqlServer)await tail.WriteLineAsync("GO");

@@ -15,7 +15,7 @@ internal static class MySqlLiveChecks
     {
         var host=Environment.GetEnvironmentVariable("DBPILOT_MYSQL_HOST")??throw new InvalidOperationException("Set DBPILOT_MYSQL_HOST.");
         var password=Environment.GetEnvironmentVariable("DBPILOT_MYSQL_PASSWORD")??throw new InvalidOperationException("Set DBPILOT_MYSQL_PASSWORD.");
-        var profile=new ConnectionProfile{Kind=DatabaseKind.MySQL,Host=host,Port=int.Parse(Environment.GetEnvironmentVariable("DBPILOT_MYSQL_PORT")??"3306"),Username=Environment.GetEnvironmentVariable("DBPILOT_MYSQL_USER")??"root",Password=password,Timeout=8,UsePooling=false,AllowPublicKeyRetrieval=true};
+        var profile=new ConnectionProfile{Kind=DatabaseKind.MySQL,Host=host,Port=int.Parse(Environment.GetEnvironmentVariable("DBPILOT_MYSQL_PORT")??"3306"),Username=Environment.GetEnvironmentVariable("DBPILOT_MYSQL_USER")??"root",Password=password,Timeout=8,UsePooling=false,AllowPublicKeyRetrieval=!string.Equals(Environment.GetEnvironmentVariable("DBPILOT_MYSQL_ALLOW_PUBLIC_KEY"),"false",StringComparison.OrdinalIgnoreCase)};
         string suffix=DateTime.UtcNow.ToString("yyyyMMddHHmmss")+"_"+Guid.NewGuid().ToString("N")[..8];
         string database="dbpilot_test_"+suffix,restored="dbpilot_restore_"+suffix;
         var owned=new HashSet<string>();var results=new List<object>();int failures=0,passed=0;string version="unknown";var started=DateTimeOffset.UtcNow;
