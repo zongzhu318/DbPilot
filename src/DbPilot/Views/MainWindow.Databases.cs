@@ -57,6 +57,7 @@ public sealed partial class MainWindow
     }
     private async Task RefreshObjects(ConnectionProfile profile,string? database=null)
     {
+        _vm.CancelObjectPaging(profile.Id);
         _objectSuggestions.Clear();_columnSuggestions.Clear();
         await RefreshDatabasePicker(true);
         foreach(var node in _vm.Nodes.Where(n=>n.Profile.Id==profile.Id).ToArray()){

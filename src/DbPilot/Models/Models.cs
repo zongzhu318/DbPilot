@@ -104,6 +104,25 @@ public sealed class ObjectNode : Observable
     public string? Database { get; init; }
     public ObservableCollection<ObjectNode> Children { get; } = [];
     public bool Loaded { get; set; }
+    public string? ParentStable { get; init; }
+    public string BaseLabel { get; init; } = "";
+    public bool IsLazyCategory { get; init; }
+    public bool IsLoadMoreHint { get; init; }
+    public ObjectNode? LoadMoreOf { get; init; }
+    private bool _isExpanded;
+    public bool IsExpanded { get=>_isExpanded; set=>Set(ref _isExpanded,value); }
+    private bool _isLoading;
+    public bool IsLoading { get=>_isLoading; set=>Set(ref _isLoading,value); }
+    private int _loadedCount;
+    public int LoadedCount { get=>_loadedCount; set {if(Set(ref _loadedCount,value))RefreshCategoryLabel();} }
+    private long? _totalCount;
+    public long? TotalCount { get=>_totalCount; set {if(Set(ref _totalCount,value))RefreshCategoryLabel();} }
+    public bool HasMore { get; set; }
+    public void RefreshCategoryLabel()
+    {
+        if(!IsLazyCategory)return;
+        Label=TotalCount is {} total ? $"{BaseLabel} ({LoadedCount} / {total})" : LoadedCount>0 ? $"{BaseLabel} ({LoadedCount})" : BaseLabel;
+    }
     public override string ToString() => Label;
 }
 public sealed class AppSettings

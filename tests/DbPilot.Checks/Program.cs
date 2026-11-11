@@ -185,6 +185,7 @@ await using(var td=new TDengineProvider(tdProfile,new StubHttpHandler(async (_,c
     using var cancel=new CancellationTokenSource(30);bool cancelled=false;try{await td.QueryAsync("SELECT 1",1,cancel.Token);}catch(OperationCanceledException){cancelled=true;}Check(cancelled,"TDengine query honors cancellation");
 }
 Environment.SetEnvironmentVariable("DBPILOT_DATA_DIR",Path.Combine(folder,"ui"));
+await TDenginePagingChecks.Run(Check);
 await EditingChecks.Run(Check);
 await EditingViewModelChecks.Run(Check);
 await AdvancedChecks.Run(Check,folder);
@@ -228,6 +229,13 @@ Check(tableMenu.Contains("设计表")&&tableMenu.Contains("清空表")&&tableMen
 var tdItems=MenuItemsFor(new(){Profile=new ConnectionProfile{Name="td",Kind=DatabaseKind.TDengine},Database="sandbox",Object=new("sandbox","","meters","超级表")});
 bool tdItem(string header,bool enabled)=>tdItems.Any(i=>i.Header?.ToString()==header&&i.IsEnabled==enabled);
 Check(tdItem("截断表",false)&&tdItem("复制表",false)&&tdItem("设置权限",false)&&!tdItems.Any(i=>i.Header?.ToString()=="维护")&&tdItems.Any(i=>i.Header?.ToString()=="清空表"),"TDengine table menu disables unsupported maintenance actions while keeping delete");
+var lazyCategoryMenu=MenuFor(new(){Profile=profile,Database="sandbox",Kind=ObjectNodeKind.Category,IsLazyCategory=true,ParentStable="meters",Label="子表 / meters",BaseLabel="子表 / meters"});
+Check(lazyCategoryMenu.Contains("搜索子表…")&&lazyCategoryMenu.Contains("重新加载子表"),"lazy subtable category offers search and reload actions");
+var catalogProfileField=typeof(MainWindow).GetField("_catalogProfile",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!;
+catalogProfileField.SetValue(window,new ConnectionProfile{Kind=DatabaseKind.TDengine,Database="paged"});
+typeof(MainWindow).GetMethod("UpdateCatalogSummary",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!.Invoke(window,null);
+Check(window.FindControl<TextBlock>("TableCatalogSummary")!.Text!.Contains("TDengine 子表请在对象树中按超级表查看"),"TDengine catalog summary directs subtables to the object tree");
+catalogProfileField.SetValue(window,null);
 var tree=window.FindControl<TreeView>("ObjectTree")!;
 var treeProfile=new ConnectionProfile{Name="tree-probe",Kind=DatabaseKind.MySQL};
 var treeConnectionNode=new ObjectNode{Label=treeProfile.Name,Profile=treeProfile,IsConnection=true,Kind=ObjectNodeKind.Connection,Loaded=true};

@@ -5,7 +5,7 @@ using DbPilot.ViewModels;
 using Renci.SshNet;
 
 namespace DbPilot.Providers;
-public sealed class SshDbProvider : IDbProvider,IEditableDbProvider
+public sealed class SshDbProvider : IDbProvider,IEditableDbProvider,IPagedObjectProvider
 {
     private readonly ConnectionProfile _profile;
     private readonly IDbProvider _names;
@@ -44,6 +44,39 @@ public sealed class SshDbProvider : IDbProvider,IEditableDbProvider
     public async Task TestAsync(CancellationToken ct)=>await(await Open(ct)).TestAsync(ct);
     public async Task<IReadOnlyList<string>> DatabasesAsync(CancellationToken ct)=>await(await Open(ct)).DatabasesAsync(ct);
     public async Task<IReadOnlyList<DbObject>> ObjectsAsync(string database,CancellationToken ct)=>await(await Open(ct)).ObjectsAsync(database,ct);
+    public async Task<IReadOnlyList<string>> StablesAsync(string database,CancellationToken ct)
+    {
+        var inner=await Open(ct);
+        return inner is IPagedObjectProvider paged
+            ?await paged.StablesAsync(database,ct)
+            :(await inner.ObjectsAsync(database,ct)).Where(o=>o.Kind=="超级表").Select(o=>o.Name).ToArray();
+    }
+    public async Task<ObjectPage> TablesPageAsync(string database,string? stableName,string? search,int offset,int pageSize,CancellationToken ct)
+    {
+        var inner=await Open(ct);
+        return inner is IPagedObjectProvider paged
+            ?await paged.TablesPageAsync(database,stableName,search,offset,pageSize,ct)
+            :ObjectPaging.Slice(await inner.ObjectsAsync(database,ct),stableName,search,offset,pageSize);
+    }
+    public async Task<long> CountTablesAsync(string database,string? stableName,string? search,CancellationToken ct)
+    {
+        var inner=await Open(ct);
+        return inner is IPagedObjectProvider paged
+            ?await paged.CountTablesAsync(database,stableName,search,ct)
+            :ObjectPaging.Count(await inner.ObjectsAsync(database,ct),stableName,search);
+    }
+    public async Task<long> TableRankAsync(string database,string? stableName,string name,CancellationToken ct)
+    {
+        var inner=await Open(ct);
+        return inner is IPagedObjectProvider paged
+            ?await paged.TableRankAsync(database,stableName,name,ct)
+            :ObjectPaging.Rank(await inner.ObjectsAsync(database,ct),stableName,name);
+    }
+    public async Task<IReadOnlyList<DbObject>> ObjectsLiteAsync(string database,CancellationToken ct)
+    {
+        var inner=await Open(ct);
+        return inner is IPagedObjectProvider paged?await paged.ObjectsLiteAsync(database,ct):await inner.ObjectsAsync(database,ct);
+    }
     public async Task<IReadOnlyList<ColumnInfo>> ColumnsAsync(DbObject table,CancellationToken ct)=>await(await Open(ct)).ColumnsAsync(table,ct);
     public async Task<IReadOnlyList<IndexInfo>> IndexesAsync(DbObject table,CancellationToken ct)=>await(await Open(ct)).IndexesAsync(table,ct);
     public async Task<QueryResult> QueryAsync(string sql,int limit,CancellationToken ct)=>await(await Open(ct)).QueryAsync(sql,limit,ct);

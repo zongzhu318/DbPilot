@@ -47,11 +47,12 @@ public sealed partial class MainWindow : Window
         TableCatalogGrid.AddHandler(ContextRequestedEvent,CatalogContextRequested,RoutingStrategies.Tunnel,handledEventsToo:true);
         ObjectTree.ContextMenu!.Opening+=(_,_)=>{if(ObjectTree.SelectedItem is ObjectNode selected)BuildTreeContextMenu(selected);};
         ObjectTree.ContainerPrepared+=(_,e)=>PrepareTreeItem(e.Container as TreeViewItem);
+        ObjectTree.AddHandler(ScrollViewer.ScrollChangedEvent,TreeScrolled,RoutingStrategies.Bubble,handledEventsToo:true);
         SqlEditor.SyntaxHighlighting=SqlHighlighting.Create(DatabaseKind.MySQL,false);
         SqlEditor.TextChanged+=(_,_)=>{if(!_loading && _displayedTab is not null)_displayedTab.Sql=SqlEditor.Text;};
         _vm.ResultChanged+=ShowResult;
         _vm.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(MainViewModel.Busy))UpdateEditControls();if(e.PropertyName is nameof(MainViewModel.Busy) or nameof(MainViewModel.ConnectionStatus))UpdateConnectionControls();if(e.PropertyName==nameof(MainViewModel.HasTab))UpdateWorkspaceState();};
-        Closed+=(_,_)=>{_databaseRequest?.Cancel();_catalogCancellation?.Cancel();};
+        Closed+=(_,_)=>{_databaseRequest?.Cancel();_catalogCancellation?.Cancel();_vm.CancelObjectPaging();};
         Results.RowEditEnded+=(_,_)=>UpdateEditControls();
         Results.LoadingRow+=(_,e)=>e.Row.Header=e.Row.Index+1;
         Results.Sorting+=(_,e)=>{
@@ -63,7 +64,11 @@ public sealed partial class MainWindow : Window
         UpdateEditControls();
         UpdateWorkspaceState();
         var expansion=TreeViewItem.IsExpandedProperty.Changed.AddClassHandler<TreeViewItem>(async(item,args)=>{
-            if(item.IsExpanded&&item.DataContext is ObjectNode{Loaded:false} node&&item.GetVisualAncestors().Contains(ObjectTree)&&!_vm.Busy)await _vm.ExpandAsync(node);
+            if(item.DataContext is not ObjectNode node||!item.GetVisualAncestors().Contains(ObjectTree))return;
+            node.IsExpanded=item.IsExpanded;
+            if(!item.IsExpanded)return;
+            if(node.IsLazyCategory){await _vm.EnsureLazyCategoryAsync(node);return;}
+            if(!node.Loaded&&!_vm.Busy)await _vm.ExpandAsync(node);
         });
         Closed+=(_,_)=>expansion.Dispose();
         QueryTabs.AddHandler(DragDrop.DragOverEvent,TabsDragOver);
@@ -93,6 +98,7 @@ public sealed partial class MainWindow : Window
     private async Task<bool> PrepareCloseAsync()
     {
         _vm.Cancel();
+        _vm.CancelObjectPaging();
         if(_vm.Busy){_vm.Log("正在取消当前任务，请等待完成后再关闭窗口。");return false;}
         if(_closingCheck)return false;
         _closingCheck=true;
@@ -252,7 +258,9 @@ public sealed partial class MainWindow : Window
     {
         // The chevron sits outside the header presenter; taps there must only toggle expansion.
         if(e.Source is Control source && source.GetVisualAncestors().Any(a=>a is Panel{Name:"PART_ExpandCollapseChevronContainer"}))return;
-        if(ItemAt<ObjectNode>(e.Source) is not {Kind:ObjectNodeKind.Table or ObjectNodeKind.View} node)return;
+        var tapped=ItemAt<ObjectNode>(e.Source);
+        if(tapped is {IsLoadMoreHint:true,LoadMoreOf:{} category}){ObjectTree.SelectedItem=tapped;await _vm.LoadMoreObjectPageAsync(category);return;}
+        if(tapped is not {Kind:ObjectNodeKind.Table or ObjectNodeKind.View} node)return;
         if(ObjectTree.SelectedItem!=node)ObjectTree.SelectedItem=node;
         await OpenSelected();
     }

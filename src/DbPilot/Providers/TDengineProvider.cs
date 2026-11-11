@@ -6,8 +6,13 @@ using DbPilot.Models;
 
 namespace DbPilot.Providers;
 // TDengine uses taosAdapter REST (default port 6041), independently of ADO.NET.
-public sealed class TDengineProvider : IDbProvider
+public sealed class TDengineProvider : IDbProvider,IPagedObjectProvider
 {
+    private const int PageLimitMax=500;
+    private const int LiteObjectLimit=5000;
+    // TDengine 3.3 pushes ORDER BY on information_schema down below LIMIT when the key is a bare
+    // column, so pages/ranks drift; a CAST key keeps the global sort in front of LIMIT/OFFSET.
+    private const string NameOrder="CAST(table_name AS VARCHAR(256))";
     private readonly ConnectionProfile _profile;
     private readonly HttpClient _http;
     public TDengineProvider(ConnectionProfile profile,HttpMessageHandler? handler=null)
@@ -86,6 +91,40 @@ public sealed class TDengineProvider : IDbProvider
             string parent=parentColumn>=0?x[parentColumn]?.ToString()??"":"";return new DbObject(database,"",x[0]?.ToString()??"",parent.Length>0?"子表":"普通表",Parent:parent);
         })).ToArray();
     }
+    public async Task<IReadOnlyList<string>> StablesAsync(string database,CancellationToken ct)
+        =>(await QueryAsync($"SHOW {Quote(database)}.STABLES",10000,ct)).Rows.Select(r=>r[0]?.ToString()??"").Where(n=>n.Length>0).ToArray();
+    public async Task<ObjectPage> TablesPageAsync(string database,string? stableName,string? search,int offset,int pageSize,CancellationToken ct)
+    {
+        if(offset<0||pageSize is <1 or >PageLimitMax)throw new ArgumentOutOfRangeException(nameof(offset));
+        var sql=$"SELECT table_name FROM information_schema.ins_tables WHERE {TableScope(database,stableName)}{TableSearch(search)} ORDER BY {NameOrder} LIMIT {pageSize+1} OFFSET {offset}";
+        var names=(await QueryAsync(sql,pageSize+1,ct)).Rows.Select(r=>r[0]?.ToString()??"").Where(n=>n.Length>0).ToArray();
+        return new(names.Take(pageSize).ToArray(),names.Length>pageSize);
+    }
+    public async Task<long> CountTablesAsync(string database,string? stableName,string? search,CancellationToken ct)
+    {
+        var sql=$"SELECT COUNT(*) FROM information_schema.ins_tables WHERE {TableScope(database,stableName)}{TableSearch(search)}";
+        var rows=(await QueryAsync(sql,1,ct)).Rows;
+        return rows.Count>0&&long.TryParse(rows[0][0]?.ToString(),out var count)?count:0;
+    }
+    public async Task<long> TableRankAsync(string database,string? stableName,string name,CancellationToken ct)
+    {
+        var sql=$"SELECT COUNT(*) FROM information_schema.ins_tables WHERE {TableScope(database,stableName)} AND {NameOrder} < {Services.DataValues.String(name,DatabaseKind.TDengine)}";
+        var rows=(await QueryAsync(sql,1,ct)).Rows;
+        return rows.Count>0&&long.TryParse(rows[0][0]?.ToString(),out var rank)?rank:0;
+    }
+    public async Task<IReadOnlyList<DbObject>> ObjectsLiteAsync(string database,CancellationToken ct)
+    {
+        var stables=await StablesAsync(database,ct);
+        var sql=$"SELECT table_name FROM information_schema.ins_tables WHERE {TableScope(database,null)} ORDER BY {NameOrder} LIMIT {LiteObjectLimit}";
+        var tables=(await QueryAsync(sql,LiteObjectLimit,ct)).Rows.Select(r=>r[0]?.ToString()??"").Where(n=>n.Length>0).Select(n=>new DbObject(database,"",n,"普通表"));
+        return stables.Select(n=>new DbObject(database,"",n,"超级表")).Concat(tables).ToArray();
+    }
+    private static string TableScope(string database,string? stableName)
+    {
+        var scope="db_name = "+Services.DataValues.String(database,DatabaseKind.TDengine);
+        return stableName is null?scope+" AND (stable_name IS NULL OR stable_name = '')":scope+" AND stable_name = "+Services.DataValues.String(stableName,DatabaseKind.TDengine);
+    }
+    private static string TableSearch(string? search)=>string.IsNullOrWhiteSpace(search)?"":" AND table_name LIKE "+Services.DataValues.String("%"+search+"%",DatabaseKind.TDengine);
     public async Task<IReadOnlyList<ColumnInfo>> ColumnsAsync(DbObject table, CancellationToken ct) => (await QueryAsync($"DESCRIBE {Qualified(table)}",10000,ct)).Rows.Select(r=>{
         var type=r[1]?.ToString()??"";if(type is "BINARY" or "NCHAR" or "VARCHAR" or "VARBINARY")type+="("+r[2]+")";
         return new ColumnInfo(r[0]?.ToString()??"",type,true,false,"",r.Length>3?r[3]?.ToString()??"":"",r.Length>3&&r[3]?.ToString()=="TAG");}).ToArray();

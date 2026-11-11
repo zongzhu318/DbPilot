@@ -22,6 +22,7 @@ public sealed partial class MainViewModel
         await Guard(async _=>{await Store.SaveConnectionsAsync(Connections);RefreshConnectionVisuals(profile);Log("连接外观已保存。");});
     }
     private void UpdateConnectionNodes(ConnectionProfile profile,bool clear=false){
+        if(clear)CancelObjectPaging(profile.Id);
         foreach(var node in Nodes.Where(n=>n.Profile.Id==profile.Id)){
             node.Label=ConnectionNodeLabel(profile);node.IconColor=ConnectionIconColor(profile);node.IsOpen=_connected.Contains(profile.Id);
             if(clear){node.Loaded=false;node.Children.Clear();node.Children.Add(new(){Label="打开连接后加载数据库",Profile=profile,Kind=ObjectNodeKind.Hint,Loaded=true});}

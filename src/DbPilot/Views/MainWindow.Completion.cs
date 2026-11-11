@@ -50,7 +50,7 @@ public sealed partial class MainWindow
                     await using var provider=DbProviderFactory.Create(profile);
                     var key=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(profile)));
                     if(!_objectSuggestions.TryGetValue(key,out var cached)||DateTime.UtcNow-cached.Time>TimeSpan.FromSeconds(60)){
-                        cached=(DateTime.UtcNow,await provider.ObjectsAsync(profile.Database,deadline.Token));
+                        cached=(DateTime.UtcNow,await provider.ObjectsLiteAsync(profile.Database,deadline.Token));
                         if(_objectSuggestions.Count>20){_objectSuggestions.Clear();_columnSuggestions.Clear();}_objectSuggestions[key]=cached;
                     }
                     string Insert(string name)=>name.All(SqlCompletionContext.IsIdentifier)&&!char.IsDigit(name[0])&&name==name.ToLowerInvariant()&&!SqlCompletionContext.Keywords(kind).Contains(name,StringComparer.OrdinalIgnoreCase)?name:provider.Quote(name);

@@ -58,6 +58,7 @@ public sealed partial class MainWindow
             item.Click+=async(_,_)=>{if(TryBeginTreeAction())await action();};
             items.Add(item);
         }
+        void AddDirect(string text,EventHandler<RoutedEventArgs> action,bool enabled=true){var item=new MenuItem{Header=text,IsEnabled=enabled};item.Click+=action;items.Add(item);}
         void Separator()=>items.Add(new Separator());
         bool idle=!_vm.Busy,open=_vm.IsOpen(node.Profile);
         bool databaseReady=!string.IsNullOrWhiteSpace(node.Database??node.Profile.Database);
@@ -97,6 +98,11 @@ public sealed partial class MainWindow
             AddTask("导出向导",()=>OpenDatabaseToolsTab(5,node),idle&&open);
             Add("复制数据库名称",async(_,_)=>{if(Clipboard is not null&&node.Database is {} name)await Clipboard.SetTextAsync(name);});
             AddTask("刷新",()=>RefreshTreeNodeAsync(node),idle&&open);
+        }else if(node.IsLazyCategory){
+            if(node.ParentStable is not null){
+                AddDirect("搜索子表…",SearchSubtables,idle&&open);
+                AddDirect("重新加载子表",ReloadSubtables,idle&&open);
+            }else AddDirect("重新加载普通表",ReloadSubtables,idle&&open);
         }else if(node.IsCategory){
             if(node.Label.Contains("表",StringComparison.OrdinalIgnoreCase)){
                 AddTask("新建表",()=>CreateTableForContextAsync(node),idle&&open);

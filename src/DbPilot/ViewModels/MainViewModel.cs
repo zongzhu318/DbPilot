@@ -24,7 +24,7 @@ public sealed partial class MainViewModel : Observable
     public string ConnectionStatus=>Connection is null?"未选择连接":_disconnected.Contains(Connection.Id)?"已断开":_connected.Contains(Connection.Id)?"已连接（定时检测）":"尚未连接";
     private void Connected(ConnectionProfile profile,bool reopen=false){if(_disconnected.Contains(profile.Id)&&!reopen)return;_connected.Add(profile.Id);_disconnected.Remove(profile.Id);Changed(nameof(ConnectionStatus));UpdateConnectionNodes(profile);}
     private void EnsureConnected(ConnectionProfile profile){if(_disconnected.Contains(profile.Id))throw new InvalidOperationException("该连接已断开，请先点击连接。");_usedProfiles[(profile.Id,profile.Database)]=CloneForDatabase(profile,null);}
-    public void Disconnect(){if(Connection is not {} profile)return;Cancel();_connected.Remove(profile.Id);_disconnected.Add(profile.Id);Changed(nameof(ConnectionStatus));UpdateConnectionNodes(profile,true);foreach(var p in _usedProfiles.Where(p=>p.Key.Item1==profile.Id).Select(p=>p.Value).Concat(Tabs.Where(t=>t.Connection?.Id==profile.Id).Select(t=>t.Connection!)).Append(profile).DistinctBy(p=>p.Database)){if(p.Kind!=DatabaseKind.TDengine)try{RelationalProvider.ClearPool(p);}catch(Exception ex){Log("连接池释放失败："+ex.Message,"Warn");}}Log("已断开 · 已关闭连接 "+profile.Name);}
+    public void Disconnect(){if(Connection is not {} profile)return;Cancel();CancelObjectPaging(profile.Id);_connected.Remove(profile.Id);_disconnected.Add(profile.Id);Changed(nameof(ConnectionStatus));UpdateConnectionNodes(profile,true);foreach(var p in _usedProfiles.Where(p=>p.Key.Item1==profile.Id).Select(p=>p.Value).Concat(Tabs.Where(t=>t.Connection?.Id==profile.Id).Select(t=>t.Connection!)).Append(profile).DistinctBy(p=>p.Database)){if(p.Kind!=DatabaseKind.TDengine)try{RelationalProvider.ClearPool(p);}catch(Exception ex){Log("连接池释放失败："+ex.Message,"Warn");}}Log("已断开 · 已关闭连接 "+profile.Name);}
     public Task ConnectAsync()=>Guard(async ct=>{var profile=Connection??throw new InvalidOperationException("请选择连接。");await using var provider=_createProvider(profile);await provider.TestAsync(ct);Connected(profile,true);Log("连接成功 · "+profile.Name);});
     public async Task HeartbeatAsync()
     {
@@ -66,6 +66,7 @@ public sealed partial class MainViewModel : Observable
     public bool HasNoConnections=>Connections.Count==0&&Nodes.Count==0;
     public void RebuildTree(string filter = "")
     {
+        CancelObjectPaging();
         Nodes.Clear();
         foreach(var p in Connections.Where(p=>string.IsNullOrWhiteSpace(filter) || p.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))) {
             var node = new ObjectNode { Label = ConnectionNodeLabel(p), Profile = p, IsConnection=true, Kind=ObjectNodeKind.Connection, IsOpen=_connected.Contains(p.Id), IconColor=ConnectionIconColor(p) };
@@ -90,6 +91,8 @@ public sealed partial class MainViewModel : Observable
             } else if(node.Database is null) {
                 var databases = await provider.DatabasesAsync(ct); node.Children.Clear();
                 foreach(var database in databases) { var child = new ObjectNode { Label=database, Profile=node.Profile,Database=database,Kind=ObjectNodeKind.Database }; child.Children.Add(new ObjectNode { Label="双击加载对象",Profile=node.Profile,Kind=ObjectNodeKind.Hint,Loaded=true }); node.Children.Add(child); }
+            } else if(provider is IPagedObjectProvider paged && node.Profile.Kind==DatabaseKind.TDengine) {
+                await BuildObjectSkeletonAsync(node,paged,ct);
             } else {
                 var objects = await provider.ObjectsAsync(node.Database,ct); node.Children.Clear();
                 foreach(var schema in objects.GroupBy(o=>o.Parent.Length>0?o.Kind+" / "+o.Parent:string.IsNullOrWhiteSpace(o.Schema) ? o.Kind : o.Schema + " / " + o.Kind)) {

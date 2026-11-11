@@ -87,8 +87,9 @@ public sealed class DatabaseToolsWindow : Window
         finally{_operation=null;if(_closing)Close();}
     }
     private Task Load(bool target)=>Run(async ct=>{
-        var profile=Profile(target);await using var provider=DbProviderFactory.Create(profile);var objects=await provider.ObjectsAsync(profile.Database,ct);
-        var picker=target?_targetTables:_tables;picker.ItemsSource=objects;picker.SelectedIndex=objects.Count>0?0:-1;_status.Text=$"已加载 {objects.Count} 个对象。";
+        var profile=Profile(target);await using var provider=DbProviderFactory.Create(profile);var objects=await provider.ObjectsLiteAsync(profile.Database,ct);
+        var picker=target?_targetTables:_tables;picker.ItemsSource=objects;picker.SelectedIndex=objects.Count>0?0:-1;
+        _status.Text=$"已加载 {objects.Count} 个对象。"+(profile.Kind==DatabaseKind.TDengine?" TDengine 子表请在对象树中按超级表查看。":"");
     });
     private Task Definition()=>Run(async ct=>{var profile=Profile(false);await using var provider=DbProviderFactory.Create(profile);_preview.Text=await provider.DefinitionAsync(Table(false),ct);_previewProfile=profile;_status.Text="对象定义已载入。";});
     private async Task Export(string format)
@@ -185,7 +186,7 @@ public sealed class DatabaseToolsWindow : Window
     {
         if(_operation is not null)return;
         var tables=new List<(DbObject Table,IReadOnlyList<ColumnInfo> Columns)>();IReadOnlyList<ForeignKeyInfo> keys=[];bool completed=false;
-        await Run(async ct=>{var profile=Profile(false);await using var provider=DbProviderFactory.Create(profile);var objects=(await provider.ObjectsAsync(profile.Database,ct)).Where(o=>o.Kind is "表" or "普通表" or "超级表").ToArray();
+        await Run(async ct=>{var profile=Profile(false);await using var provider=DbProviderFactory.Create(profile);var objects=(await provider.ObjectsLiteAsync(profile.Database,ct)).Where(o=>o.Kind is "表" or "普通表" or "超级表").ToArray();
             if(objects.Length>100)throw new InvalidOperationException("关系图最多展示 100 张表，请按数据库拆分查看。");
             foreach(var table in objects){ct.ThrowIfCancellationRequested();tables.Add((table,await provider.ColumnsAsync(table,ct)));_status.Text=$"读取表结构 · {tables.Count}/{objects.Length}";}
             keys=await provider.ForeignKeysAsync(profile.Database,ct);

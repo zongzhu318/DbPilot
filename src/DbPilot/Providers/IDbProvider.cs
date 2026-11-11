@@ -2,6 +2,7 @@ using DbPilot.Models;
 
 namespace DbPilot.Providers;
 public sealed record BrowseQuery(string Sql,IReadOnlyList<int> PreviewColumns);
+public sealed record ObjectPage(IReadOnlyList<string> Names,bool HasMore);
 public interface IDbProvider : IAsyncDisposable
 {
     Task TestAsync(CancellationToken ct);
@@ -25,6 +26,41 @@ public interface IDbProvider : IAsyncDisposable
 public interface IEditableDbProvider
 {
     Task<int> ApplyChangesAsync(DbObject table,IReadOnlyList<RowChange> changes,CancellationToken ct);
+}
+// Optional capability for metadata that can be paged on the server. stableName=null means ordinary tables.
+public interface IPagedObjectProvider
+{
+    Task<IReadOnlyList<string>> StablesAsync(string database,CancellationToken ct);
+    Task<ObjectPage> TablesPageAsync(string database,string? stableName,string? search,int offset,int pageSize,CancellationToken ct);
+    Task<long> CountTablesAsync(string database,string? stableName,string? search,CancellationToken ct);
+    Task<long> TableRankAsync(string database,string? stableName,string name,CancellationToken ct);
+    Task<IReadOnlyList<DbObject>> ObjectsLiteAsync(string database,CancellationToken ct);
+}
+public static class DbProviderExtensions
+{
+    public static Task<IReadOnlyList<DbObject>> ObjectsLiteAsync(this IDbProvider provider,string database,CancellationToken ct)
+        => provider is IPagedObjectProvider paged ? paged.ObjectsLiteAsync(database,ct) : provider.ObjectsAsync(database,ct);
+}
+// In-memory paging used when a wrapper hides a paging provider; keeps the same ordering as the server.
+public static class ObjectPaging
+{
+    public static ObjectPage Slice(IEnumerable<DbObject> objects,string? stableName,string? search,int offset,int pageSize)
+    {
+        if(offset<0||pageSize is <1 or >500)throw new ArgumentOutOfRangeException(nameof(offset));
+        var names=Filter(objects,stableName,search).Select(o=>o.Name).ToArray();
+        return new(names.Skip(offset).Take(pageSize).ToArray(),names.Length>offset+pageSize);
+    }
+    public static long Count(IEnumerable<DbObject> objects,string? stableName,string? search)=>Filter(objects,stableName,search).Count();
+    public static long Rank(IEnumerable<DbObject> objects,string? stableName,string name)
+        => Filter(objects,stableName,null).Count(o=>string.CompareOrdinal(o.Name,name)<0);
+    private static IEnumerable<DbObject> Filter(IEnumerable<DbObject> objects,string? stableName,string? search)
+    {
+        var scoped=stableName is null
+            ? objects.Where(o=>o.Kind=="普通表")
+            : objects.Where(o=>o.Kind=="子表"&&o.Parent==stableName);
+        if(string.IsNullOrEmpty(search))return scoped.OrderBy(o=>o.Name,StringComparer.Ordinal);
+        return scoped.Where(o=>o.Name.Contains(search,StringComparison.OrdinalIgnoreCase)).OrderBy(o=>o.Name,StringComparer.Ordinal);
+    }
 }
 public static class DbProviderFactory
 {

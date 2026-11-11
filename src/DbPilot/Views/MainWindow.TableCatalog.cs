@@ -93,7 +93,8 @@ public sealed partial class MainWindow
     private void UpdateCatalogSummary()
     {
         var count=TableCatalogGrid.ItemsSource?.Cast<DbObject>().Count()??0;
-        TableCatalogSummary.Text=_catalogError??(_catalogLoading?"正在加载表列表…":_catalogTables.Count==0?"此数据库暂无表或视图。":count==0?"没有匹配的表，请修改或清空筛选条件。":$"显示 {count} / {_catalogTables.Count} 个表与视图 · 双击或按 Enter 打开，右键查看属性");
+        var hint=_catalogProfile?.Kind==DatabaseKind.TDengine?" · TDengine 子表请在对象树中按超级表查看":"";
+        TableCatalogSummary.Text=(_catalogError??(_catalogLoading?"正在加载表列表…":_catalogTables.Count==0?"此数据库暂无表或视图。":count==0?"没有匹配的表，请修改或清空筛选条件。":$"显示 {count} / {_catalogTables.Count} 个表与视图 · 双击或按 Enter 打开，右键查看属性"))+hint;
     }
     private async Task ShowTableCatalog()
     {
@@ -110,7 +111,7 @@ public sealed partial class MainWindow
         TableCatalogGrid.IsEnabled=false;SetWorkspaceMode(true);ApplyCatalogFilter();
         try{
             await using var provider=DbProviderFactory.Create(profile);
-            var objects=await provider.ObjectsAsync(profile.Database,timeout.Token);
+            var objects=await provider.ObjectsLiteAsync(profile.Database,timeout.Token);
             var current=_vm.CurrentProfile;
             if(request!=_catalogRequest || _vm.IsClosed(profile)||current?.Id!=profile.Id||current.Database!=profile.Database)return;
             var selected=(TableCatalogGrid.SelectedItem as DbObject)?.ToString();
